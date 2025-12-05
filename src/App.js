@@ -1,35 +1,8 @@
-import React, { useState, useEffect } from "react";
-import {
-  Plus,
-  Download,
-  Trash2,
-  Check,
-  X,
-  Search,
-  Building,
-  AlertCircle,
-  User,
-  Users,
-  Edit3,
-  Save,
-  FileText,
-  StickyNote,
-  ExternalLink,
-  Calendar,
-  Cloud,
-  RefreshCw,
-  ShieldAlert,
-  Globe,
-} from "lucide-react";
-import { initializeApp } from "firebase/app";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  onSnapshot,
-} from "firebase/firestore";
+import React, { useState, useEffect } from 'react';
+import { Plus, Download, Trash2, Check, X, Search, Building, AlertCircle, User, Users, Edit3, Save, FileText, StickyNote, ExternalLink, Calendar, Cloud, RefreshCw, ShieldAlert, Globe, TrendingUp } from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // --- SENİN FIREBASE AYARLARIN ---
 const firebaseConfig = {
