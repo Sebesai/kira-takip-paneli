@@ -7,7 +7,7 @@ import {
   Wallet, TrendingUp, TrendingDown, FileText, StickyNote, Link as LinkIcon, DollarSign, XCircle, Minus, AlertTriangle, Info, User, Clock, Shield, Zap, Lock, LogOut
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // --- FIREBASE CONFIG ---
@@ -93,7 +93,7 @@ const getTenureWarning = (startDateStr) => {
 
 const months = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
 
-// --- LOGIN COMPONENT ---
+// --- 1. LOGIN COMPONENT (MISSING FIX) ---
 const LoginScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -109,8 +109,9 @@ const LoginScreen = () => {
     } catch (err) {
       let msg = "Giriş başarısız.";
       if (err.code === 'auth/invalid-credential') msg = "E-posta veya şifre hatalı.";
-      if (err.code === 'auth/user-not-found') msg = "Bu e-posta ile kayıtlı kullanıcı yok.";
-      if (err.code === 'auth/wrong-password') msg = "Şifre yanlış.";
+      else if (err.code === 'auth/user-not-found') msg = "Bu e-posta ile kayıtlı kullanıcı yok.";
+      else if (err.code === 'auth/wrong-password') msg = "Şifre yanlış.";
+      else msg = err.message;
       setError(msg);
       setLoading(false);
     }
@@ -166,203 +167,14 @@ const LoginScreen = () => {
         
         <div className="mt-6 text-center text-xs text-slate-400">
           <p>Bu sistem 256-bit SSL ile korunmaktadır.</p>
-          <p className="mt-1">Erişim sorunu için yöneticiyle görüşün.</p>
         </div>
       </div>
     </div>
   );
 };
 
-// --- MAIN APP COMPONENT ---
-export default function VesayetYonetimSistemi() {
-  const [user, setUser] = useState(null);
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [syncStatus, setSyncStatus] = useState('idle');
-  const [appLoading, setAppLoading] = useState(true); // Initial Auth Check
-  
-  // UI State
-  const [activeModule, setActiveModule] = useState('rents'); 
-  const [activeClientId, setActiveClientId] = useState(null);
-  const [showAddClientModal, setShowAddClientModal] = useState(false);
-  const [newClientName, setNewClientName] = useState("");
-  
-  const [confirmModal, setConfirmModal] = useState({ show: false, title: '', msg: '', onConfirm: null });
+// --- 2. SUB-COMPONENTS & MODULES (DEFINED BEFORE USE TO PREVENT ERRORS) ---
 
-  // --- AUTH LISTENER ---
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setAppLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // --- DATABASE SYNC ---
-  useEffect(() => {
-    if (!user) return;
-    // Ortak veritabanı yolu: 'app_data/main_data'
-    // İki avukat da buraya bağlanır.
-    const docRef = doc(db, 'app_data', 'main_data');
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) setClients(docSnap.data().clients || []);
-      else setClients([]);
-      setLoading(false);
-    }, (err) => {
-      console.error("Veri okuma hatası:", err);
-      // İzin hatası varsa (giriş yapmamışsa)
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [user]);
-
-  const saveToCloud = async (newClients) => {
-    if (!user) return;
-    setClients([...newClients]); 
-    setSyncStatus('syncing');
-    try {
-      await setDoc(doc(db, 'app_data', 'main_data'), { clients: newClients }, { merge: true });
-      setSyncStatus('idle');
-    } catch (e) {
-      console.error(e);
-      setSyncStatus('error');
-      alert("Kaydetme hatası: Yetkiniz olmayabilir.");
-    }
-  };
-
-  const handleLogout = () => {
-    if(window.confirm("Çıkış yapmak istediğinize emin misiniz?")) {
-      signOut(auth);
-    }
-  };
-
-  // --- ACTIONS ---
-  const triggerConfirm = (title, msg, onConfirm) => {
-    setConfirmModal({ 
-      show: true, 
-      title, 
-      msg, 
-      onConfirm: () => {
-        onConfirm();
-        setConfirmModal({ show: false, title: '', msg: '', onConfirm: null }); 
-      } 
-    });
-  };
-
-  const handleAddClient = (e) => {
-    e.preventDefault();
-    if (!newClientName.trim()) return;
-    const newClient = { id: `c-${Date.now()}`, name: newClientName, tenants: [], lawsuits: [], assets: [], ledger: [] };
-    saveToCloud([...clients, newClient]);
-    setActiveClientId(newClient.id);
-    setNewClientName("");
-    setShowAddClientModal(false);
-  };
-
-  const activeClient = clients.find(c => c.id === activeClientId) || null;
-
-  // --- RENDER LOGIC ---
-  if (appLoading) return <div className="flex h-screen items-center justify-center text-blue-600"><RefreshCw className="animate-spin mr-2"/> Güvenli Bağlantı...</div>;
-  
-  // Eğer kullanıcı giriş yapmamışsa Login Ekranını göster
-  if (!user) return <LoginScreen />;
-
-  // Kullanıcı giriş yapmışsa Ana Uygulamayı göster
-  return (
-    <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20 shrink-0 print:hidden">
-        <div className="p-6 border-b border-slate-700">
-          <h1 className="text-lg font-bold flex items-center gap-2 text-blue-400"><ShieldCheck className="w-6 h-6" /> Vesayet Yönetim</h1>
-          <p className="text-xs text-slate-400 mt-1">{user.email}</p>
-        </div>
-        <div className="p-4 border-b border-slate-700">
-          <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Aktif Dosya</label>
-          <select className="w-full bg-slate-800 border border-slate-600 text-sm rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none" value={activeClientId || ''} onChange={(e) => setActiveClientId(e.target.value)}>
-            <option value="" disabled>Dosya Seçiniz...</option>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <button onClick={() => setShowAddClientModal(true)} className="w-full mt-2 text-xs bg-blue-700 hover:bg-blue-600 text-white py-1.5 rounded flex items-center justify-center gap-1 transition"><Plus className="w-3 h-3" /> Yeni Dosya Aç</button>
-        </div>
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <MenuButton active={activeModule === 'dashboard'} onClick={() => setActiveModule('dashboard')} icon={<PieChart className="w-5 h-5"/>} label="Genel Bakış" />
-          <MenuButton active={activeModule === 'upcoming'} onClick={() => setActiveModule('upcoming')} icon={<Clock className="w-5 h-5 text-orange-400"/>} label="Yaklaşan İşlemler" />
-          
-          <div className="pt-4 pb-1 text-xs font-bold text-slate-500 uppercase">Operasyon</div>
-          <MenuButton active={activeModule === 'rents'} onClick={() => setActiveModule('rents')} icon={<Building className="w-5 h-5"/>} label="Kiralar & Mülkler" count={activeClient?.tenants?.length} />
-          <MenuButton active={activeModule === 'accounting'} onClick={() => setActiveModule('accounting')} icon={<Wallet className="w-5 h-5"/>} label="Hesap Defteri" count={activeClient?.ledger?.length} />
-          <MenuButton active={activeModule === 'assets'} onClick={() => setActiveModule('assets')} icon={<Home className="w-5 h-5"/>} label="Varlıklar & DASK" count={activeClient?.assets?.length} />
-          
-          <div className="pt-4 pb-1 text-xs font-bold text-slate-500 uppercase">Hukuk</div>
-          <MenuButton active={activeModule === 'lawsuits'} onClick={() => setActiveModule('lawsuits')} icon={<Gavel className="w-5 h-5"/>} label="Dava & İcra" count={activeClient?.lawsuits?.length} />
-        </nav>
-        <div className="p-4 bg-slate-950 border-t border-slate-800">
-           <div className="flex justify-between items-center mb-2 text-xs text-slate-500">
-             <span>{syncStatus === 'syncing' ? 'Kaydediliyor...' : 'Senkronize'}</span>
-             {syncStatus === 'syncing' ? <RefreshCw className="w-3 h-3 animate-spin"/> : <Cloud className="w-3 h-3 text-green-500"/>}
-           </div>
-           <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/20 py-2 rounded transition"><LogOut className="w-3 h-3"/> Çıkış Yap</button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b h-16 flex items-center justify-between px-6 shadow-sm z-10 shrink-0 print:hidden">
-          <h2 className="font-bold text-lg text-slate-700">{activeClient ? activeClient.name : 'Lütfen Dosya Seçiniz'}{activeClient && <span className="ml-2 text-sm font-normal text-slate-400">/ {getModuleName(activeModule)}</span>}</h2>
-        </header>
-        <main className="flex-1 overflow-y-auto p-6 relative bg-slate-50 print:p-0 print:bg-white print:overflow-visible">
-          {!activeClient ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400"><Users className="w-16 h-16 mb-4 opacity-20" /><p>İşlem yapmak için soldan bir müvekkil/kısıtlı dosyası seçin.</p></div>
-          ) : (
-            <>
-              {activeModule === 'dashboard' && <DashboardModule client={activeClient} />}
-              {activeModule === 'upcoming' && <UpcomingModule client={activeClient} />}
-              
-              {activeModule === 'rents' && <RentModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
-              {activeModule === 'lawsuits' && <LawsuitModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
-              {activeModule === 'assets' && <AssetModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
-              {activeModule === 'accounting' && <AccountingModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
-            </>
-          )}
-        </main>
-      </div>
-
-      {/* Global Confirm Modal */}
-      {confirmModal.show && (
-        <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 border-t-4 border-red-500">
-            <div className="flex items-start gap-4">
-              <div className="bg-red-100 p-2 rounded-full"><AlertTriangle className="w-6 h-6 text-red-600" /></div>
-              <div><h3 className="text-lg font-bold text-gray-800 mb-2">{confirmModal.title}</h3><p className="text-sm text-gray-600 leading-relaxed">{confirmModal.msg}</p></div>
-            </div>
-            <div className="flex gap-3 mt-6 justify-end">
-              <button onClick={() => setConfirmModal({ ...confirmModal, show: false })} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">İptal</button>
-              <button onClick={confirmModal.onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm shadow-md">Evet, Sil</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Client Modal */}
-      {showAddClientModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
-            <h3 className="font-bold text-lg mb-4">Yeni Dosya Aç</h3>
-            <input autoFocus type="text" className="w-full border p-2 rounded mb-4 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Kısıtlı Adı / Dosya No" value={newClientName} onChange={e => setNewClientName(e.target.value)} />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowAddClientModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">İptal</button>
-              <button onClick={handleAddClient} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Oluştur</button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <style>{`@media print { body * { visibility: hidden; } #report-modal, #report-modal * { visibility: visible; } #report-modal { position: absolute; left: 0; top: 0; width: 100%; height: auto; margin: 0; padding: 0; background: white; z-index: 9999; } #report-content { margin: 0; padding: 20px; width: 100%; } .print\\:hidden { display: none !important; } }`}</style>
-    </div>
-  );
-}
-
-// --- SUB-COMPONENTS ---
 const MenuButton = ({ active, onClick, icon, label, count }) => (
   <button onClick={onClick} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
     <div className="flex items-center gap-3">{icon}<span>{label}</span></div>
@@ -379,7 +191,6 @@ const getModuleName = (mod) => {
   return 'Genel Bakış';
 }
 
-// --- MODULE 1: DASHBOARD ---
 const DashboardModule = ({ client }) => {
   const ledger = client.ledger || [];
   const totalIncome = ledger.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
@@ -400,7 +211,6 @@ const DashboardModule = ({ client }) => {
   );
 };
 
-// --- MODULE 6: UPCOMING (AKILLI TAKVİM) ---
 const UpcomingModule = ({ client }) => {
   const events = [];
   (client.lawsuits || []).forEach(l => {
@@ -475,7 +285,6 @@ const UpcomingModule = ({ client }) => {
   );
 }
 
-// --- RENT MODULE ---
 const RentModule = ({ client, updateClient, triggerConfirm }) => {
   const [showTenantModal, setShowTenantModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -679,6 +488,10 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Önceki Kira</label><input type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.previousRent} onChange={e => setTenantForm({...tenantForm, previousRent: e.target.value})} /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç Kira</label><input required type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.startRentAmount} onChange={e => setTenantForm({...tenantForm, startRentAmount: e.target.value})} /></div>
               </div>
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <input type="checkbox" id="clause" className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500" checked={tenantForm.hasIncreaseClause} onChange={e => setTenantForm({...tenantForm, hasIncreaseClause: e.target.checked})} />
+                  <label htmlFor="clause" className="text-sm text-slate-700 cursor-pointer select-none">Sözleşmede <strong>TÜFE/ÜFE Artış Maddesi</strong> var</label>
+              </div>
               <div className="space-y-3 pt-4 border-t">
                 <div className="flex justify-between items-center"><h3 className="text-sm font-semibold text-slate-500">Kira Artış Dönemleri</h3><button type="button" onClick={() => setTenantForm({...tenantForm, rentHistory: [...tenantForm.rentHistory, {date: '', amount: ''}]})} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-200">+ Dönem</button></div>
                 {tenantForm.rentHistory.map((h, i) => (
@@ -762,7 +575,6 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
 
 // --- MODULE 3: LAWSUITS (DAVALAR - EDİTLENEBİLİR) ---
 const LawsuitModule = ({ client, updateClient, triggerConfirm }) => {
-  // ... (Aynı kod)
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ court: '', fileNo: '', type: '', nextDate: '', status: 'active' });
   const [editingId, setEditingId] = useState(null);
@@ -908,7 +720,6 @@ const AssetModule = ({ client, updateClient, triggerConfirm }) => {
 
 // --- MODULE 5: ACCOUNTING (HESAP DEFTERİ - EDİTLENEBİLİR) ---
 const AccountingModule = ({ client, updateClient, triggerConfirm }) => {
-  // ... (Aynı kod)
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0,10), type: 'expense', category: 'bakim', amount: '', description: '' });
   const [editingId, setEditingId] = useState(null);
@@ -995,3 +806,176 @@ const AccountingModule = ({ client, updateClient, triggerConfirm }) => {
     </div>
   );
 };
+
+// --- MAIN APP COMPONENT (AT THE END) ---
+export default function VesayetYonetimSistemi() {
+  // ... (Main component logic - remains same, but placed at end)
+  const [user, setUser] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState('idle');
+  const [appLoading, setAppLoading] = useState(true); 
+  
+  const [activeModule, setActiveModule] = useState('rents'); 
+  const [activeClientId, setActiveClientId] = useState(null);
+  const [showAddClientModal, setShowAddClientModal] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  
+  const [confirmModal, setConfirmModal] = useState({ show: false, title: '', msg: '', onConfirm: null });
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAppLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const docRef = doc(db, 'app_data', 'main_data');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) setClients(docSnap.data().clients || []);
+      else setClients([]);
+      setLoading(false);
+    }, (err) => {
+      console.error("Veri okuma hatası:", err);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  const saveToCloud = async (newClients) => {
+    if (!user) return;
+    setClients([...newClients]); 
+    setSyncStatus('syncing');
+    try {
+      await setDoc(doc(db, 'app_data', 'main_data'), { clients: newClients }, { merge: true });
+      setSyncStatus('idle');
+    } catch (e) {
+      console.error(e);
+      setSyncStatus('error');
+      alert("Kaydetme hatası: Yetkiniz olmayabilir.");
+    }
+  };
+
+  const handleLogout = () => {
+    if(window.confirm("Çıkış yapmak istediğinize emin misiniz?")) {
+      signOut(auth);
+    }
+  };
+
+  const triggerConfirm = (title, msg, onConfirm) => {
+    setConfirmModal({ 
+      show: true, 
+      title, 
+      msg, 
+      onConfirm: () => {
+        onConfirm();
+        setConfirmModal({ show: false, title: '', msg: '', onConfirm: null }); 
+      } 
+    });
+  };
+
+  const handleAddClient = (e) => {
+    e.preventDefault();
+    if (!newClientName.trim()) return;
+    const newClient = { id: `c-${Date.now()}`, name: newClientName, tenants: [], lawsuits: [], assets: [], ledger: [] };
+    saveToCloud([...clients, newClient]);
+    setActiveClientId(newClient.id);
+    setNewClientName("");
+    setShowAddClientModal(false);
+  };
+
+  const activeClient = clients.find(c => c.id === activeClientId) || null;
+
+  if (appLoading) return <div className="flex h-screen items-center justify-center text-blue-600"><RefreshCw className="animate-spin mr-2"/> Güvenli Bağlantı...</div>;
+  
+  if (!user) return <LoginScreen />;
+
+  return (
+    <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden">
+      <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20 shrink-0 print:hidden">
+        <div className="p-6 border-b border-slate-700">
+          <h1 className="text-lg font-bold flex items-center gap-2 text-blue-400"><ShieldCheck className="w-6 h-6" /> Vesayet Yönetim</h1>
+          <p className="text-xs text-slate-400 mt-1">{user.email}</p>
+        </div>
+        <div className="p-4 border-b border-slate-700">
+          <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Aktif Dosya</label>
+          <select className="w-full bg-slate-800 border border-slate-600 text-sm rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none" value={activeClientId || ''} onChange={(e) => setActiveClientId(e.target.value)}>
+            <option value="" disabled>Dosya Seçiniz...</option>
+            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <button onClick={() => setShowAddClientModal(true)} className="w-full mt-2 text-xs bg-blue-700 hover:bg-blue-600 text-white py-1.5 rounded flex items-center justify-center gap-1 transition"><Plus className="w-3 h-3" /> Yeni Dosya Aç</button>
+        </div>
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <MenuButton active={activeModule === 'dashboard'} onClick={() => setActiveModule('dashboard')} icon={<PieChart className="w-5 h-5"/>} label="Genel Bakış" />
+          <MenuButton active={activeModule === 'upcoming'} onClick={() => setActiveModule('upcoming')} icon={<Clock className="w-5 h-5 text-orange-400"/>} label="Yaklaşan İşlemler" />
+          <div className="pt-4 pb-1 text-xs font-bold text-slate-500 uppercase">Operasyon</div>
+          <MenuButton active={activeModule === 'rents'} onClick={() => setActiveModule('rents')} icon={<Building className="w-5 h-5"/>} label="Kiralar & Mülkler" count={activeClient?.tenants?.length} />
+          <MenuButton active={activeModule === 'accounting'} onClick={() => setActiveModule('accounting')} icon={<Wallet className="w-5 h-5"/>} label="Hesap Defteri" count={activeClient?.ledger?.length} />
+          <MenuButton active={activeModule === 'assets'} onClick={() => setActiveModule('assets')} icon={<Home className="w-5 h-5"/>} label="Varlıklar & DASK" count={activeClient?.assets?.length} />
+          <div className="pt-4 pb-1 text-xs font-bold text-slate-500 uppercase">Hukuk</div>
+          <MenuButton active={activeModule === 'lawsuits'} onClick={() => setActiveModule('lawsuits')} icon={<Gavel className="w-5 h-5"/>} label="Dava & İcra" count={activeClient?.lawsuits?.length} />
+        </nav>
+        <div className="p-4 bg-slate-950 border-t border-slate-800">
+           <div className="flex justify-between items-center mb-2 text-xs text-slate-500">
+             <span>{syncStatus === 'syncing' ? 'Kaydediliyor...' : 'Senkronize'}</span>
+             {syncStatus === 'syncing' ? <RefreshCw className="w-3 h-3 animate-spin"/> : <Cloud className="w-3 h-3 text-green-500"/>}
+           </div>
+           <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/20 py-2 rounded transition"><LogOut className="w-3 h-3"/> Çıkış Yap</button>
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="bg-white border-b h-16 flex items-center justify-between px-6 shadow-sm z-10 shrink-0 print:hidden">
+          <h2 className="font-bold text-lg text-slate-700">{activeClient ? activeClient.name : 'Lütfen Dosya Seçiniz'}{activeClient && <span className="ml-2 text-sm font-normal text-slate-400">/ {getModuleName(activeModule)}</span>}</h2>
+        </header>
+        <main className="flex-1 overflow-y-auto p-6 relative bg-slate-50 print:p-0 print:bg-white print:overflow-visible">
+          {!activeClient ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-400"><Users className="w-16 h-16 mb-4 opacity-20" /><p>İşlem yapmak için soldan bir müvekkil/kısıtlı dosyası seçin.</p></div>
+          ) : (
+            <>
+              {activeModule === 'dashboard' && <DashboardModule client={activeClient} />}
+              {activeModule === 'upcoming' && <UpcomingModule client={activeClient} />}
+              {activeModule === 'rents' && <RentModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
+              {activeModule === 'lawsuits' && <LawsuitModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
+              {activeModule === 'assets' && <AssetModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
+              {activeModule === 'accounting' && <AccountingModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
+            </>
+          )}
+        </main>
+      </div>
+
+      {confirmModal.show && (
+        <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 border-t-4 border-red-500">
+            <div className="flex items-start gap-4">
+              <div className="bg-red-100 p-2 rounded-full"><AlertTriangle className="w-6 h-6 text-red-600" /></div>
+              <div><h3 className="text-lg font-bold text-gray-800 mb-2">{confirmModal.title}</h3><p className="text-sm text-gray-600 leading-relaxed">{confirmModal.msg}</p></div>
+            </div>
+            <div className="flex gap-3 mt-6 justify-end">
+              <button onClick={() => setConfirmModal({ ...confirmModal, show: false })} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">İptal</button>
+              <button onClick={confirmModal.onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm shadow-md">Evet, Sil</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddClientModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
+            <h3 className="font-bold text-lg mb-4">Yeni Dosya Aç</h3>
+            <input autoFocus type="text" className="w-full border p-2 rounded mb-4 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Kısıtlı Adı / Dosya No" value={newClientName} onChange={e => setNewClientName(e.target.value)} />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowAddClientModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">İptal</button>
+              <button onClick={handleAddClient} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Oluştur</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <style>{`@media print { body * { visibility: hidden; } #report-modal, #report-modal * { visibility: visible; } #report-modal { position: absolute; left: 0; top: 0; width: 100%; height: auto; margin: 0; padding: 0; background: white; z-index: 9999; } #report-content { margin: 0; padding: 20px; width: 100%; } .print\\:hidden { display: none !important; } }`}</style>
+    </div>
+  );
+}
