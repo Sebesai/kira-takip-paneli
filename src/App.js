@@ -4,10 +4,10 @@ import {
   Plus, Trash2, Edit3, Save, Search, Check, X, 
   AlertCircle, Cloud, RefreshCw, Printer, 
   ExternalLink, Calendar, Menu, ArrowRight, Home,
-  Wallet, TrendingUp, TrendingDown, FileText, StickyNote, Link as LinkIcon, DollarSign, XCircle, Minus, AlertTriangle, Info, User, Clock, Shield, Zap
+  Wallet, TrendingUp, TrendingDown, FileText, StickyNote, Link as LinkIcon, DollarSign, XCircle, Minus, AlertTriangle, Info, User, Clock, Shield, Zap, Lock, LogOut
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // --- FIREBASE CONFIG ---
@@ -59,49 +59,33 @@ const cyclePaymentStatus = (currentStatus) => {
   return 'paid';
 };
 
-// --- AKILLI TARİH HESAPLAYICILAR ---
-
-// Bir tarihin (örn: 01.01.2021) bu yılki veya gelecek yılki yıldönümünü bulur
 const getNextAnniversary = (baseDateStr) => {
   if (!baseDateStr) return null;
   const today = new Date();
-  today.setHours(0,0,0,0); // Saat farkını yoksay
-  
+  today.setHours(0,0,0,0); 
   const baseDate = new Date(baseDateStr);
   const currentYear = today.getFullYear();
-
-  // Bu yılki yıldönümü
   const nextDate = new Date(baseDate);
   nextDate.setFullYear(currentYear);
-
-  // Eğer bu yılki tarih geçtiyse, seneye at
   if (nextDate < today) {
     nextDate.setFullYear(currentYear + 1);
   }
   return nextDate;
 };
 
-// 5. Yıl (Kira Tespit) Uyarısı Hesaplayıcı
-// Başlangıç tarihinden itibaren 5. yılın dolmasına 6 ay kala uyarı verir, 2 ay kala kritik olur.
 const getTenureWarning = (startDateStr) => {
   if (!startDateStr) return null;
   const start = new Date(startDateStr);
   const today = new Date();
-  
-  // 5. Yılın Dolduğu Tarih
   const year5End = new Date(start);
   year5End.setFullYear(start.getFullYear() + 5);
-  
-  // Farkı hesapla (Milisaniye cinsinden)
   const diffTime = year5End - today;
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  // 6 ay (180 gün) ve altı için uyarı ver
   if (diffDays > 0 && diffDays <= 180) {
     return { 
       date: year5End, 
       daysLeft: diffDays,
-      isCritical: diffDays <= 60 // 60 gün ve altı kritik (İhtarname için son viraj)
+      isCritical: diffDays <= 60 
     };
   }
   return null;
@@ -109,12 +93,93 @@ const getTenureWarning = (startDateStr) => {
 
 const months = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
 
+// --- LOGIN COMPONENT ---
+const LoginScreen = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      let msg = "Giriş başarısız.";
+      if (err.code === 'auth/invalid-credential') msg = "E-posta veya şifre hatalı.";
+      if (err.code === 'auth/user-not-found') msg = "Bu e-posta ile kayıtlı kullanıcı yok.";
+      if (err.code === 'auth/wrong-password') msg = "Şifre yanlış.";
+      setError(msg);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
+        <div className="text-center mb-8">
+          <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
+            <ShieldCheck className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-800">Vesayet Yönetim</h1>
+          <p className="text-slate-500 text-sm mt-1">Yetkili Personel Girişi</p>
+        </div>
+        
+        <form onSubmit={handleLogin} className="space-y-4">
+          {error && <div className="bg-red-50 text-red-600 p-3 rounded text-sm font-medium border border-red-100 flex items-center gap-2"><AlertCircle className="w-4 h-4"/>{error}</div>}
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">E-Posta Adresi</label>
+            <input 
+              type="email" 
+              required 
+              className="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition"
+              placeholder="ornek@hukuk.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Şifre</label>
+            <input 
+              type="password" 
+              required 
+              className="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-lg transition shadow-md flex justify-center items-center gap-2"
+          >
+            {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : <Lock className="w-5 h-5"/>}
+            {loading ? "Giriş Yapılıyor..." : "Güvenli Giriş"}
+          </button>
+        </form>
+        
+        <div className="mt-6 text-center text-xs text-slate-400">
+          <p>Bu sistem 256-bit SSL ile korunmaktadır.</p>
+          <p className="mt-1">Erişim sorunu için yöneticiyle görüşün.</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- MAIN APP COMPONENT ---
 export default function VesayetYonetimSistemi() {
   const [user, setUser] = useState(null);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState('idle');
+  const [appLoading, setAppLoading] = useState(true); // Initial Auth Check
   
   // UI State
   const [activeModule, setActiveModule] = useState('rents'); 
@@ -124,18 +189,28 @@ export default function VesayetYonetimSistemi() {
   
   const [confirmModal, setConfirmModal] = useState({ show: false, title: '', msg: '', onConfirm: null });
 
-  // --- AUTH & SYNC ---
+  // --- AUTH LISTENER ---
   useEffect(() => {
-    signInAnonymously(auth).catch(e => console.warn(e));
-    onAuthStateChanged(auth, u => setUser(u));
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAppLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
+  // --- DATABASE SYNC ---
   useEffect(() => {
     if (!user) return;
+    // Ortak veritabanı yolu: 'app_data/main_data'
+    // İki avukat da buraya bağlanır.
     const docRef = doc(db, 'app_data', 'main_data');
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) setClients(docSnap.data().clients || []);
       else setClients([]);
+      setLoading(false);
+    }, (err) => {
+      console.error("Veri okuma hatası:", err);
+      // İzin hatası varsa (giriş yapmamışsa)
       setLoading(false);
     });
     return () => unsubscribe();
@@ -151,6 +226,13 @@ export default function VesayetYonetimSistemi() {
     } catch (e) {
       console.error(e);
       setSyncStatus('error');
+      alert("Kaydetme hatası: Yetkiniz olmayabilir.");
+    }
+  };
+
+  const handleLogout = () => {
+    if(window.confirm("Çıkış yapmak istediğinize emin misiniz?")) {
+      signOut(auth);
     }
   };
 
@@ -179,15 +261,20 @@ export default function VesayetYonetimSistemi() {
 
   const activeClient = clients.find(c => c.id === activeClientId) || null;
 
-  if (loading) return <div className="flex h-screen items-center justify-center text-blue-600"><RefreshCw className="animate-spin mr-2"/> Sistem Yükleniyor...</div>;
+  // --- RENDER LOGIC ---
+  if (appLoading) return <div className="flex h-screen items-center justify-center text-blue-600"><RefreshCw className="animate-spin mr-2"/> Güvenli Bağlantı...</div>;
+  
+  // Eğer kullanıcı giriş yapmamışsa Login Ekranını göster
+  if (!user) return <LoginScreen />;
 
+  // Kullanıcı giriş yapmışsa Ana Uygulamayı göster
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden">
       {/* Sidebar */}
       <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20 shrink-0 print:hidden">
         <div className="p-6 border-b border-slate-700">
           <h1 className="text-lg font-bold flex items-center gap-2 text-blue-400"><ShieldCheck className="w-6 h-6" /> Vesayet Yönetim</h1>
-          <p className="text-xs text-slate-400 mt-1">v4.0 - Legal Intelligence</p>
+          <p className="text-xs text-slate-400 mt-1">{user.email}</p>
         </div>
         <div className="p-4 border-b border-slate-700">
           <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Aktif Dosya</label>
@@ -209,9 +296,12 @@ export default function VesayetYonetimSistemi() {
           <div className="pt-4 pb-1 text-xs font-bold text-slate-500 uppercase">Hukuk</div>
           <MenuButton active={activeModule === 'lawsuits'} onClick={() => setActiveModule('lawsuits')} icon={<Gavel className="w-5 h-5"/>} label="Dava & İcra" count={activeClient?.lawsuits?.length} />
         </nav>
-        <div className="p-4 bg-slate-950 text-xs text-slate-500 flex justify-between items-center">
-          <span>{syncStatus === 'syncing' ? 'Kaydediliyor...' : 'Senkronize'}</span>
-          {syncStatus === 'syncing' ? <RefreshCw className="w-3 h-3 animate-spin"/> : <Cloud className="w-3 h-3 text-green-500"/>}
+        <div className="p-4 bg-slate-950 border-t border-slate-800">
+           <div className="flex justify-between items-center mb-2 text-xs text-slate-500">
+             <span>{syncStatus === 'syncing' ? 'Kaydediliyor...' : 'Senkronize'}</span>
+             {syncStatus === 'syncing' ? <RefreshCw className="w-3 h-3 animate-spin"/> : <Cloud className="w-3 h-3 text-green-500"/>}
+           </div>
+           <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/20 py-2 rounded transition"><LogOut className="w-3 h-3"/> Çıkış Yap</button>
         </div>
       </div>
 
@@ -291,7 +381,6 @@ const getModuleName = (mod) => {
 
 // --- MODULE 1: DASHBOARD ---
 const DashboardModule = ({ client }) => {
-  // ... (Önceki kodun aynısı)
   const ledger = client.ledger || [];
   const totalIncome = ledger.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
   const totalExpense = ledger.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
@@ -314,31 +403,22 @@ const DashboardModule = ({ client }) => {
 // --- MODULE 6: UPCOMING (AKILLI TAKVİM) ---
 const UpcomingModule = ({ client }) => {
   const events = [];
-
-  // 1. Davalar
   (client.lawsuits || []).forEach(l => {
     if (l.nextDate && l.status === 'active') {
       events.push({ type: 'lawsuit', date: new Date(l.nextDate), title: 'Duruşma/İşlem Günü', subtitle: `${l.court} - ${l.fileNo}`, icon: <Gavel className="w-5 h-5 text-orange-600"/>, urgency: 'high' });
     }
   });
-
-  // 2. Varlık Sigortaları (Otomatik Yıllık Döngü)
   (client.assets || []).forEach(a => {
     const nextDask = getNextAnniversary(a.daskDate);
     if (nextDask) {
       events.push({ type: 'insurance', date: nextDask, title: 'DASK Yenileme', subtitle: a.name, icon: <ShieldCheck className="w-5 h-5 text-blue-600"/>, urgency: 'medium' });
     }
   });
-
-  // 3. Kiracılar (Kira Artışı, Sigortalar ve 5. Yıl Uyarısı)
   (client.tenants || []).forEach(t => {
-    // Kira Artışı (Kontrat Tarihinin Yıldönümü)
     const nextIncrease = getNextAnniversary(t.startDate);
     if (nextIncrease) {
       events.push({ type: 'rent', date: nextIncrease, title: 'Kira Artış Dönemi', subtitle: `${t.name} (Mevcut: ₺${Number(t.startRentAmount).toLocaleString('tr-TR')})`, icon: <TrendingUp className="w-5 h-5 text-emerald-600"/>, urgency: 'medium' });
     }
-
-    // Kiracı Sigortaları (Otomatik Yıllık Döngü)
     const nextTenantDask = getNextAnniversary(t.daskDate);
     if (nextTenantDask) {
       events.push({ type: 'insurance', date: nextTenantDask, title: 'DASK (Kiracı)', subtitle: t.name, icon: <Shield className="w-5 h-5 text-purple-600"/>, urgency: 'medium' });
@@ -347,8 +427,6 @@ const UpcomingModule = ({ client }) => {
     if (nextHousingIns) {
       events.push({ type: 'insurance', date: nextHousingIns, title: 'Konut Sigortası', subtitle: t.name, icon: <Home className="w-5 h-5 text-indigo-600"/>, urgency: 'medium' });
     }
-
-    // 5. Yıl (Kira Tespit) Uyarısı - GÜNCELLENDİ
     const tenureWarning = getTenureWarning(t.startDate);
     if (tenureWarning) {
       events.push({ 
@@ -361,10 +439,7 @@ const UpcomingModule = ({ client }) => {
       });
     }
   });
-
-  // Tarihe göre sırala
   events.sort((a, b) => a.date - b.date);
-
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2"><Clock className="w-6 h-6 text-blue-600"/> Yaklaşan Kritik Tarihler</h3>
@@ -377,27 +452,18 @@ const UpcomingModule = ({ client }) => {
               const daysLeft = Math.ceil((e.date - new Date()) / (1000 * 60 * 60 * 24));
               const isOverdue = daysLeft < 0;
               const isUrgent = daysLeft <= 30 || e.urgency === 'critical';
-
               let bgClass = "hover:bg-slate-50";
               if (e.urgency === 'critical') bgClass = "bg-red-50 hover:bg-red-100 border-l-4 border-red-500";
               else if (isOverdue) bgClass = "bg-slate-100 opacity-70";
-
               return (
                 <div key={i} className={`p-4 flex items-center justify-between ${bgClass}`}>
                   <div className="flex items-center gap-4">
                     <div className={`p-2 rounded-lg bg-white border shadow-sm`}>{e.icon}</div>
-                    <div>
-                      <h4 className={`font-bold text-sm ${e.urgency === 'critical' ? 'text-red-800' : 'text-slate-800'}`}>{e.title}</h4>
-                      <p className="text-xs text-slate-500">{e.subtitle}</p>
-                    </div>
+                    <div><h4 className={`font-bold text-sm ${e.urgency === 'critical' ? 'text-red-800' : 'text-slate-800'}`}>{e.title}</h4><p className="text-xs text-slate-500">{e.subtitle}</p></div>
                   </div>
                   <div className="text-right">
-                    <div className={`font-mono font-bold text-sm ${isOverdue ? 'text-red-600' : isUrgent ? 'text-orange-500' : 'text-slate-600'}`}>
-                      {e.date.toLocaleDateString('tr-TR')}
-                    </div>
-                    <div className={`text-[10px] font-bold uppercase ${isOverdue ? 'text-red-500' : isUrgent ? 'text-orange-400' : 'text-green-500'}`}>
-                      {isOverdue ? `${Math.abs(daysLeft)} gün geçti` : `${daysLeft} gün kaldı`}
-                    </div>
+                    <div className={`font-mono font-bold text-sm ${isOverdue ? 'text-red-600' : isUrgent ? 'text-orange-500' : 'text-slate-600'}`}>{e.date.toLocaleDateString('tr-TR')}</div>
+                    <div className={`text-[10px] font-bold uppercase ${isOverdue ? 'text-red-500' : isUrgent ? 'text-orange-400' : 'text-green-500'}`}>{isOverdue ? `${Math.abs(daysLeft)} gün geçti` : `${daysLeft} gün kaldı`}</div>
                   </div>
                 </div>
               );
@@ -420,21 +486,17 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
   const [newDoc, setNewDoc] = useState({ title: "", link: "" });
   const [newNote, setNewNote] = useState("");
   
-  // Form State (Sigortalar eklendi)
   const [tenantForm, setTenantForm] = useState({ 
     name: "", address: "", startDate: "", 
     startRentAmount: "", previousRent: "", 
     rentHistory: [], hasIncreaseClause: false,
-    daskDate: "", housingInsuranceDate: "" // YENİ ALANLAR
+    daskDate: "", housingInsuranceDate: ""
   });
-
-  // Sadece sigorta tarihlerini düzenlemek için modal içi state
   const [insuranceForm, setInsuranceForm] = useState({ daskDate: "", housingInsuranceDate: "" });
 
   const activeTenants = client.tenants || [];
   const selectedTenant = activeTenants.find(t => t.id === selectedTenantId) || null;
 
-  // Detay penceresi açıldığında form verisini doldur
   useEffect(() => {
     if (selectedTenant) {
       setInsuranceForm({
@@ -449,14 +511,12 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
   const handleSaveTenant = (e) => {
     e.preventDefault();
     if (!tenantForm.name || !tenantForm.startRentAmount) return;
-    
     let updatedTenants;
     if (editingTenantId) {
       updatedTenants = activeTenants.map(t => t.id === editingTenantId ? { ...t, ...tenantForm } : t);
     } else {
       updatedTenants = [...activeTenants, { ...tenantForm, id: Date.now(), payments: {}, documents: [], notes: [] }];
     }
-    
     updateClient({ ...client, tenants: updatedTenants });
     setShowTenantModal(false);
     setEditingTenantId(null);
@@ -474,7 +534,6 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
     setShowTenantModal(true);
   };
 
-  // Sigorta tarihlerini kaydetme (Detay penceresinden)
   const handleSaveInsurance = () => {
     if (!selectedTenantId) return;
     const updatedTenants = activeTenants.map(t => {
