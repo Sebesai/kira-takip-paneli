@@ -4,7 +4,7 @@ import {
   Plus, Trash2, Edit3, Save, Search, Check, X, 
   AlertCircle, Cloud, RefreshCw, Printer, 
   ExternalLink, Calendar, Menu, ArrowRight, Home,
-  Wallet, TrendingUp, TrendingDown, FileText, StickyNote, Link as LinkIcon, DollarSign, XCircle, Minus, AlertTriangle, Info, User, Clock, Shield, Zap, Lock, LogOut
+  Wallet, TrendingUp, TrendingDown, FileText, StickyNote, Link as LinkIcon, DollarSign, XCircle, Minus, AlertTriangle, Info, Clock, Shield, Zap, Lock, LogOut, ChevronLeft, ChevronRight, Filter
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
@@ -38,7 +38,7 @@ const formatDateTR = (dateString) => {
 const getRentForMonth = (tenant, monthIndex) => {
   if (!tenant?.rentHistory || tenant.rentHistory.length === 0) return Number(tenant?.startRentAmount) || 0;
   const currentYear = new Date().getFullYear();
-  const targetDate = new Date(currentYear, monthIndex, 1);
+  const targetDate = new Date(currentYear, monthIndex + 1, 0); 
   const sortedHistory = [...tenant.rentHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
   let applicableRent = Number(tenant.startRentAmount) || 0;
   for (const record of sortedHistory) {
@@ -92,8 +92,9 @@ const getTenureWarning = (startDateStr) => {
 };
 
 const months = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+const fullMonths = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
-// --- 1. LOGIN COMPONENT (MISSING FIX) ---
+// --- 1. LOGIN COMPONENT ---
 const LoginScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -142,7 +143,6 @@ const LoginScreen = () => {
               onChange={e => setEmail(e.target.value)}
             />
           </div>
-          
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Şifre</label>
             <input 
@@ -154,26 +154,17 @@ const LoginScreen = () => {
               onChange={e => setPassword(e.target.value)}
             />
           </div>
-
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-lg transition shadow-md flex justify-center items-center gap-2"
-          >
+          <button type="submit" disabled={loading} className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-lg transition shadow-md flex justify-center items-center gap-2">
             {loading ? <RefreshCw className="w-5 h-5 animate-spin"/> : <Lock className="w-5 h-5"/>}
             {loading ? "Giriş Yapılıyor..." : "Güvenli Giriş"}
           </button>
         </form>
-        
-        <div className="mt-6 text-center text-xs text-slate-400">
-          <p>Bu sistem 256-bit SSL ile korunmaktadır.</p>
-        </div>
       </div>
     </div>
   );
 };
 
-// --- 2. SUB-COMPONENTS & MODULES (DEFINED BEFORE USE TO PREVENT ERRORS) ---
+// --- SUB-COMPONENTS & MODULES (DEFINED BEFORE USE) ---
 
 const MenuButton = ({ active, onClick, icon, label, count }) => (
   <button onClick={onClick} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
@@ -185,7 +176,7 @@ const MenuButton = ({ active, onClick, icon, label, count }) => (
 const getModuleName = (mod) => {
   if (mod === 'rents') return 'Kira Yönetimi';
   if (mod === 'lawsuits') return 'Dava & İcra Takibi';
-  if (mod === 'assets') return 'Varlık & Sigorta';
+  if (mod === 'assets') return 'Varlık Yönetimi';
   if (mod === 'accounting') return 'Hesap Defteri';
   if (mod === 'upcoming') return 'Yaklaşan İşlemler';
   return 'Genel Bakış';
@@ -294,154 +285,33 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [newDoc, setNewDoc] = useState({ title: "", link: "" });
   const [newNote, setNewNote] = useState("");
-  
-  const [tenantForm, setTenantForm] = useState({ 
-    name: "", address: "", startDate: "", 
-    startRentAmount: "", previousRent: "", 
-    rentHistory: [], hasIncreaseClause: false,
-    daskDate: "", housingInsuranceDate: ""
-  });
+  const [tenantForm, setTenantForm] = useState({ name: "", address: "", startDate: "", startRentAmount: "", previousRent: "", rentHistory: [], hasIncreaseClause: false, daskDate: "", housingInsuranceDate: "" });
   const [insuranceForm, setInsuranceForm] = useState({ daskDate: "", housingInsuranceDate: "" });
-
   const activeTenants = client.tenants || [];
   const selectedTenant = activeTenants.find(t => t.id === selectedTenantId) || null;
-
-  useEffect(() => {
-    if (selectedTenant) {
-      setInsuranceForm({
-        daskDate: selectedTenant.daskDate || "",
-        housingInsuranceDate: selectedTenant.housingInsuranceDate || ""
-      });
-    }
-  }, [selectedTenant]);
-
+  useEffect(() => { if (selectedTenant) { setInsuranceForm({ daskDate: selectedTenant.daskDate || "", housingInsuranceDate: selectedTenant.housingInsuranceDate || "" }); } }, [selectedTenant]);
   const filteredTenants = activeTenants.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.address.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  const handleSaveTenant = (e) => {
-    e.preventDefault();
-    if (!tenantForm.name || !tenantForm.startRentAmount) return;
-    let updatedTenants;
-    if (editingTenantId) {
-      updatedTenants = activeTenants.map(t => t.id === editingTenantId ? { ...t, ...tenantForm } : t);
-    } else {
-      updatedTenants = [...activeTenants, { ...tenantForm, id: Date.now(), payments: {}, documents: [], notes: [] }];
-    }
-    updateClient({ ...client, tenants: updatedTenants });
-    setShowTenantModal(false);
-    setEditingTenantId(null);
-    setTenantForm({ name: "", address: "", startDate: "", startRentAmount: "", previousRent: "", rentHistory: [], hasIncreaseClause: false, daskDate: "", housingInsuranceDate: "" });
-  };
-
-  const openEditTenant = (tenant) => {
-    setTenantForm({ 
-      name: tenant.name, address: tenant.address, startDate: tenant.startDate, 
-      startRentAmount: tenant.startRentAmount, previousRent: tenant.previousRent || "", 
-      rentHistory: tenant.rentHistory || [], hasIncreaseClause: tenant.hasIncreaseClause,
-      daskDate: tenant.daskDate || "", housingInsuranceDate: tenant.housingInsuranceDate || ""
-    });
-    setEditingTenantId(tenant.id);
-    setShowTenantModal(true);
-  };
-
-  const handleSaveInsurance = () => {
-    if (!selectedTenantId) return;
-    const updatedTenants = activeTenants.map(t => {
-      if (t.id === selectedTenantId) {
-        return { ...t, ...insuranceForm };
-      }
-      return t;
-    });
-    updateClient({ ...client, tenants: updatedTenants });
-    alert("Sigorta tarihleri güncellendi.");
-  };
-
-  const handleTogglePayment = (tenantId, monthIndex) => {
-    const updatedTenants = activeTenants.map(t => {
-      if (t.id === tenantId) {
-        const currentStatus = t.payments?.[monthIndex];
-        const normalizedStatus = currentStatus === true ? 'paid' : currentStatus;
-        const newStatus = cyclePaymentStatus(normalizedStatus);
-        const newPayments = { ...(t.payments || {}) };
-        if (newStatus === null) delete newPayments[monthIndex]; else newPayments[monthIndex] = newStatus;
-        return { ...t, payments: newPayments };
-      }
-      return t;
-    });
-    updateClient({ ...client, tenants: updatedTenants });
-  };
-
-  const handleDeleteTenant = (id) => {
-    triggerConfirm("Kiracıyı Sil", "Bu kiracıyı silmek istediğinize emin misiniz?", () => {
-      updateClient({ ...client, tenants: activeTenants.filter(t => t.id !== id) });
-      setSelectedTenantId(null);
-    });
-  };
-
-  const handleAddDocument = (e) => {
-    e.preventDefault();
-    if (!newDoc.title || !selectedTenantId) return;
-    const updatedTenants = activeTenants.map(t => {
-      if (t.id === selectedTenantId) {
-        const currentDocs = t.documents || [];
-        return { ...t, documents: [{ id: Date.now(), title: newDoc.title, link: newDoc.link, date: new Date().toLocaleDateString('tr-TR') }, ...currentDocs] };
-      }
-      return t;
-    });
-    updateClient({ ...client, tenants: updatedTenants });
-    setNewDoc({ title: "", link: "" });
-  };
-
-  const handleDeleteDocument = (docId) => {
-    triggerConfirm("Belgeyi Sil", "Silmek istediğinize emin misiniz?", () => {
-      const updatedTenants = activeTenants.map(t => {
-        if (t.id === selectedTenantId) {
-          return { ...t, documents: (t.documents || []).filter(d => d.id !== docId) };
-        }
-        return t;
-      });
-      updateClient({ ...client, tenants: updatedTenants });
-    });
-  };
-
-  const handleAddNote = () => {
-    if (!newNote.trim() || !selectedTenantId) return;
-    const updatedTenants = activeTenants.map(t => {
-      if (t.id === selectedTenantId) {
-        const currentNotes = t.notes || [];
-        return { ...t, notes: [{ id: Date.now(), text: newNote, date: new Date().toLocaleDateString('tr-TR') }, ...currentNotes] };
-      }
-      return t;
-    });
-    updateClient({ ...client, tenants: updatedTenants });
-    setNewNote("");
-  };
-
-  const handleDeleteNote = (noteId) => {
-    triggerConfirm("Notu Sil", "Silmek istediğinize emin misiniz?", () => {
-      const updatedTenants = activeTenants.map(t => {
-        if (t.id === selectedTenantId) {
-          return { ...t, notes: (t.notes || []).filter(n => n.id !== noteId) };
-        }
-        return t;
-      });
-      updateClient({ ...client, tenants: updatedTenants });
-    });
-  };
-
+  const handleSaveTenant = (e) => { e.preventDefault(); if (!tenantForm.name || !tenantForm.startRentAmount) return; let updatedTenants; if (editingTenantId) { updatedTenants = activeTenants.map(t => t.id === editingTenantId ? { ...t, ...tenantForm } : t); } else { updatedTenants = [...activeTenants, { ...tenantForm, id: Date.now(), payments: {}, documents: [], notes: [] }]; } updateClient({ ...client, tenants: updatedTenants }); setShowTenantModal(false); setEditingTenantId(null); setTenantForm({ name: "", address: "", startDate: "", startRentAmount: "", previousRent: "", rentHistory: [], hasIncreaseClause: false, daskDate: "", housingInsuranceDate: "" }); };
+  const openEditTenant = (tenant) => { setTenantForm({ name: tenant.name, address: tenant.address, startDate: tenant.startDate, startRentAmount: tenant.startRentAmount, previousRent: tenant.previousRent || "", rentHistory: tenant.rentHistory || [], hasIncreaseClause: tenant.hasIncreaseClause, daskDate: tenant.daskDate || "", housingInsuranceDate: tenant.housingInsuranceDate || "" }); setEditingTenantId(tenant.id); setShowTenantModal(true); };
+  const handleSaveInsurance = () => { if (!selectedTenantId) return; const updatedTenants = activeTenants.map(t => { if (t.id === selectedTenantId) { return { ...t, ...insuranceForm }; } return t; }); updateClient({ ...client, tenants: updatedTenants }); alert("Sigorta tarihleri güncellendi."); };
+  const handleTogglePayment = (tenantId, monthIndex) => { const updatedTenants = activeTenants.map(t => { if (t.id === tenantId) { const currentStatus = t.payments?.[monthIndex]; const normalizedStatus = currentStatus === true ? 'paid' : currentStatus; const newStatus = cyclePaymentStatus(normalizedStatus); const newPayments = { ...(t.payments || {}) }; if (newStatus === null) delete newPayments[monthIndex]; else newPayments[monthIndex] = newStatus; return { ...t, payments: newPayments }; } return t; }); updateClient({ ...client, tenants: updatedTenants }); };
+  const handleDeleteTenant = (id) => { triggerConfirm("Kiracıyı Sil", "Bu kiracıyı silmek istediğinize emin misiniz?", () => { updateClient({ ...client, tenants: activeTenants.filter(t => t.id !== id) }); setSelectedTenantId(null); }); };
+  const handleAddDocument = (e) => { e.preventDefault(); if (!newDoc.title || !selectedTenantId) return; const updatedTenants = activeTenants.map(t => { if (t.id === selectedTenantId) { const currentDocs = t.documents || []; return { ...t, documents: [{ id: Date.now(), title: newDoc.title, link: newDoc.link, date: new Date().toLocaleDateString('tr-TR') }, ...currentDocs] }; } return t; }); updateClient({ ...client, tenants: updatedTenants }); setNewDoc({ title: "", link: "" }); };
+  const handleDeleteDocument = (docId) => { triggerConfirm("Belgeyi Sil", "Silmek istediğinize emin misiniz?", () => { const updatedTenants = activeTenants.map(t => { if (t.id === selectedTenantId) { return { ...t, documents: (t.documents || []).filter(d => d.id !== docId) }; } return t; }); updateClient({ ...client, tenants: updatedTenants }); }); };
+  const handleAddNote = () => { if (!newNote.trim() || !selectedTenantId) return; const updatedTenants = activeTenants.map(t => { if (t.id === selectedTenantId) { const currentNotes = t.notes || []; return { ...t, notes: [{ id: Date.now(), text: newNote, date: new Date().toLocaleDateString('tr-TR') }, ...currentNotes] }; } return t; }); updateClient({ ...client, tenants: updatedTenants }); setNewNote(""); };
+  const handleDeleteNote = (noteId) => { triggerConfirm("Notu Sil", "Silmek istediğinize emin misiniz?", () => { const updatedTenants = activeTenants.map(t => { if (t.id === selectedTenantId) { return { ...t, notes: (t.notes || []).filter(n => n.id !== noteId) }; } return t; }); updateClient({ ...client, tenants: updatedTenants }); }); };
   const handlePrint = () => requestAnimationFrame(() => window.print());
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
       <div className="p-4 border-b bg-slate-50 flex justify-between items-center shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="relative max-w-xs"><Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" /><input type="text" placeholder="Kiracı ara..." className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 w-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
-        </div>
+        <div className="flex items-center gap-2"><div className="relative max-w-xs"><Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" /><input type="text" placeholder="Kiracı ara..." className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 w-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div></div>
         <div className="flex gap-2"><button onClick={() => setShowReportModal(true)} className="text-sm border border-slate-300 text-slate-700 px-3 py-1.5 rounded hover:bg-slate-100 flex items-center gap-1"><Printer className="w-4 h-4"/> Rapor</button><button onClick={() => { setTenantForm({ name: "", address: "", startDate: "", startRentAmount: "", previousRent: "", rentHistory: [], hasIncreaseClause: false, daskDate: "", housingInsuranceDate: "" }); setEditingTenantId(null); setShowTenantModal(true); }} className="text-sm bg-emerald-600 text-white px-3 py-1.5 rounded hover:bg-emerald-700 flex items-center gap-1 shadow-sm"><Plus className="w-4 h-4"/> Kiracı Ekle</button></div>
       </div>
       <div className="overflow-auto flex-1 p-0">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b sticky top-0 z-20">
-            <tr><th className="p-3 w-40 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Kiracı</th><th className="p-3 w-48">Mülk</th><th className="p-3 w-24">Kontrat</th><th className="p-3 w-24 text-right text-gray-400">Önceki</th><th className="p-3 w-24 text-right">Başlangıç</th><th className="p-3 w-24 text-right text-blue-700">Güncel</th><th className="p-3 w-12 text-center">Artış</th>{months.map((m, i) => <th key={i} className="p-2 text-center w-8 border-l border-gray-200">{m}</th>)}<th className="p-3 w-16 text-center">İşlem</th></tr>
+            <tr><th className="p-3 w-40 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Kiracı</th><th className="p-3 w-48">Mülk</th><th className="p-3 w-24">Kontrat</th><th className="p-3 w-24 text-right">Başlangıç</th><th className="p-3 w-24 text-right text-gray-400">Son(Önceki)</th><th className="p-3 w-24 text-right text-blue-700">Güncel</th><th className="p-3 w-12 text-center">Artış</th>{months.map((m, i) => <th key={i} className="p-2 text-center w-8 border-l border-gray-200">{m}</th>)}<th className="p-3 w-16 text-center">İşlem</th></tr>
           </thead>
           <tbody className="divide-y divide-gray-100 text-sm">
             {filteredTenants.length === 0 ? <tr><td colSpan={20} className="p-12 text-center text-gray-400">Kayıt bulunamadı.</td></tr> : filteredTenants.map((tenant) => {
@@ -451,8 +321,8 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
                     <td className="p-3 sticky left-0 bg-white group-hover:bg-blue-50/50 z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-pointer" onClick={() => setSelectedTenantId(tenant.id)}><div className="font-semibold text-gray-900 flex items-center gap-1 hover:text-blue-600">{tenant.name}<ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100" /></div></td>
                     <td className="p-3 text-xs text-gray-600 truncate max-w-xs" title={tenant.address}>{tenant.address}</td>
                     <td className="p-3 text-xs text-gray-500 whitespace-nowrap">{formatDateTR(tenant.startDate)}</td>
-                    <td className="p-3 text-right font-mono text-xs text-gray-400">{tenant.previousRent ? `₺${Number(tenant.previousRent).toLocaleString('tr-TR')}` : '-'}</td>
                     <td className="p-3 text-right font-mono text-xs text-gray-500">₺{Number(tenant.startRentAmount).toLocaleString('tr-TR')}</td>
+                    <td className="p-3 text-right font-mono text-xs text-gray-400">{tenant.previousRent ? `₺${Number(tenant.previousRent).toLocaleString('tr-TR')}` : '-'}</td>
                     <td className="p-3 text-right font-mono font-bold text-blue-700">₺{currentRent.toLocaleString('tr-TR')}</td>
                     <td className="p-3 text-center">{tenant.hasIncreaseClause ? <span className="text-green-600 bg-green-50 px-1 py-0.5 rounded text-[10px] font-bold border border-green-200">VAR</span> : <span className="text-gray-400 text-[10px]">YOK</span>}</td>
                     {months.map((_, index) => {
@@ -474,97 +344,17 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
           </tbody>
         </table>
       </div>
-      {showTenantModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
-            <div className="bg-slate-50 p-6 border-b border-slate-200 flex justify-between items-center sticky top-0 z-10"><h2 className="text-xl font-bold text-slate-800">{editingTenantId ? 'Kiracı Düzenle' : 'Yeni Kiracı Ekle'}</h2><button onClick={() => setShowTenantModal(false)}><X className="w-6 h-6 text-slate-400" /></button></div>
-            <form onSubmit={handleSaveTenant} className="p-6 space-y-6">
-              <div className="grid grid-cols-1 gap-4">
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Ad Soyad</label><input required type="text" className="w-full border p-2.5 rounded-lg" value={tenantForm.name} onChange={e => setTenantForm({...tenantForm, name: e.target.value})} /></div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Adres</label><textarea rows="2" className="w-full border p-2.5 rounded-lg" value={tenantForm.address} onChange={e => setTenantForm({...tenantForm, address: e.target.value})} /></div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label><input type="date" className="w-full border p-2.5 rounded-lg" value={tenantForm.startDate} onChange={e => setTenantForm({...tenantForm, startDate: e.target.value})} /></div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Önceki Kira</label><input type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.previousRent} onChange={e => setTenantForm({...tenantForm, previousRent: e.target.value})} /></div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç Kira</label><input required type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.startRentAmount} onChange={e => setTenantForm({...tenantForm, startRentAmount: e.target.value})} /></div>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                  <input type="checkbox" id="clause" className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500" checked={tenantForm.hasIncreaseClause} onChange={e => setTenantForm({...tenantForm, hasIncreaseClause: e.target.checked})} />
-                  <label htmlFor="clause" className="text-sm text-slate-700 cursor-pointer select-none">Sözleşmede <strong>TÜFE/ÜFE Artış Maddesi</strong> var</label>
-              </div>
-              <div className="space-y-3 pt-4 border-t">
-                <div className="flex justify-between items-center"><h3 className="text-sm font-semibold text-slate-500">Kira Artış Dönemleri</h3><button type="button" onClick={() => setTenantForm({...tenantForm, rentHistory: [...tenantForm.rentHistory, {date: '', amount: ''}]})} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-200">+ Dönem</button></div>
-                {tenantForm.rentHistory.map((h, i) => (
-                  <div key={i} className="flex gap-2 items-center"><input type="date" className="border p-2 rounded text-sm w-32" value={h.date} onChange={e => { const n = [...tenantForm.rentHistory]; n[i].date = e.target.value; setTenantForm({...tenantForm, rentHistory: n}); }} /><input type="number" placeholder="Tutar" className="border p-2 rounded text-sm w-32" value={h.amount} onChange={e => { const n = [...tenantForm.rentHistory]; n[i].amount = e.target.value; setTenantForm({...tenantForm, rentHistory: n}); }} /><button type="button" onClick={() => { const n = tenantForm.rentHistory.filter((_, idx) => idx !== i); setTenantForm({...tenantForm, rentHistory: n}); }} className="text-red-500"><Trash2 className="w-4 h-4"/></button></div>
-                ))}
-              </div>
-              <div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowTenantModal(false)} className="flex-1 py-3 border rounded-xl">İptal</button><button type="submit" className="flex-1 py-3 bg-blue-600 text-white rounded-xl">Kaydet</button></div>
-            </form>
-          </div>
-        </div>
-      )}
-      {showReportModal && (
-        <div id="report-modal" className="fixed inset-0 bg-white z-[60] overflow-auto">
-          <div id="report-content" className="max-w-4xl mx-auto p-8">
-            <div className="flex justify-between items-start mb-8 border-b pb-4"><div><h1 className="text-2xl font-bold">Kira Tahsilat Raporu</h1><p>{new Date().toLocaleDateString('tr-TR')}</p></div><div className="flex gap-2 print:hidden"><button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded font-bold">Yazdır</button><button onClick={() => setShowReportModal(false)} className="px-4 py-2 bg-gray-200 rounded font-bold">Kapat</button></div></div>
-            <div className="space-y-6">
-              {activeTenants.map(tenant => {
-                const currentRent = getCurrentRent(tenant);
-                let totalDebt = 0;
-                months.forEach((m, i) => { if (tenant.payments?.[i] === 'unpaid') totalDebt += getRentForMonth(tenant, i); });
-                return (
-                  <div key={tenant.id} className="border p-4 rounded break-inside-avoid">
-                    <div className="flex justify-between mb-2"><h3 className="font-bold">{tenant.name}</h3><div>Güncel: ₺{currentRent.toLocaleString('tr-TR')}</div></div>
-                    <div className="grid grid-cols-12 gap-1 text-[10px] text-center mb-3">
-                      {months.map((m, i) => {
-                        const st = tenant.payments?.[i] === 'paid' ? 'OK' : tenant.payments?.[i] === 'unpaid' ? 'X' : '-';
-                        return <div key={i} className={`p-1 border ${st === 'OK' ? 'bg-green-100' : st === 'X' ? 'bg-red-100' : 'bg-gray-50'}`}>{m}<br/>{st}</div>
-                      })}
-                    </div>
-                    <div className="flex justify-end pt-2 border-t mt-2"><div className="text-right"><span className="text-xs font-bold text-gray-500 uppercase block">Toplam Borç</span><span className={`text-lg font-mono font-bold ${totalDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>₺{totalDebt.toLocaleString('tr-TR')}</span></div></div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      {showTenantModal && (<div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col"><div className="bg-slate-50 p-6 border-b border-slate-200 flex justify-between items-center sticky top-0 z-10"><h2 className="text-xl font-bold text-slate-800">{editingTenantId ? 'Kiracı Düzenle' : 'Yeni Kiracı Ekle'}</h2><button onClick={() => setShowTenantModal(false)}><X className="w-6 h-6 text-slate-400" /></button></div><form onSubmit={handleSaveTenant} className="p-6 space-y-6"><div className="grid grid-cols-1 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Ad Soyad</label><input required type="text" className="w-full border p-2.5 rounded-lg" value={tenantForm.name} onChange={e => setTenantForm({...tenantForm, name: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Adres</label><textarea rows="2" className="w-full border p-2.5 rounded-lg" value={tenantForm.address} onChange={e => setTenantForm({...tenantForm, address: e.target.value})} /></div></div><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label><input type="date" className="w-full border p-2.5 rounded-lg" value={tenantForm.startDate} onChange={e => setTenantForm({...tenantForm, startDate: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Önceki Kira</label><input type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.previousRent} onChange={e => setTenantForm({...tenantForm, previousRent: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç Kira</label><input required type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.startRentAmount} onChange={e => setTenantForm({...tenantForm, startRentAmount: e.target.value})} /></div></div><div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200"><input type="checkbox" id="clause" className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500" checked={tenantForm.hasIncreaseClause} onChange={e => setTenantForm({...tenantForm, hasIncreaseClause: e.target.checked})} /><label htmlFor="clause" className="text-sm text-slate-700 cursor-pointer select-none">Sözleşmede <strong>TÜFE/ÜFE Artış Maddesi</strong> var</label></div><div className="space-y-3 pt-4 border-t"><div className="flex justify-between items-center"><h3 className="text-sm font-semibold text-slate-500">Kira Artış Dönemleri</h3><button type="button" onClick={() => setTenantForm({...tenantForm, rentHistory: [...tenantForm.rentHistory, {date: '', amount: ''}]})} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-200">+ Dönem</button></div>{tenantForm.rentHistory.map((h, i) => (<div key={i} className="flex gap-2 items-center"><input type="date" className="border p-2 rounded text-sm w-32" value={h.date} onChange={e => { const n = [...tenantForm.rentHistory]; n[i].date = e.target.value; setTenantForm({...tenantForm, rentHistory: n}); }} /><input type="number" placeholder="Tutar" className="border p-2 rounded text-sm w-32" value={h.amount} onChange={e => { const n = [...tenantForm.rentHistory]; n[i].amount = e.target.value; setTenantForm({...tenantForm, rentHistory: n}); }} /><button type="button" onClick={() => { const n = tenantForm.rentHistory.filter((_, idx) => idx !== i); setTenantForm({...tenantForm, rentHistory: n}); }} className="text-red-500"><Trash2 className="w-4 h-4"/></button></div>))}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowTenantModal(false)} className="flex-1 py-3 border rounded-xl">İptal</button><button type="submit" className="flex-1 py-3 bg-blue-600 text-white rounded-xl">Kaydet</button></div></form></div></div>)}
+      {showReportModal && (<div id="report-modal" className="fixed inset-0 bg-white z-[60] overflow-auto"><div id="report-content" className="max-w-4xl mx-auto p-8"><div className="flex justify-between items-start mb-8 border-b pb-4"><div><h1 className="text-2xl font-bold">Kira Tahsilat Raporu</h1><p>{new Date().toLocaleDateString('tr-TR')}</p></div><div className="flex gap-2 print:hidden"><button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded font-bold">Yazdır</button><button onClick={() => setShowReportModal(false)} className="px-4 py-2 bg-gray-200 rounded font-bold">Kapat</button></div></div><div className="space-y-6">{activeTenants.map(tenant => { const currentRent = getCurrentRent(tenant); let totalDebt = 0; months.forEach((m, i) => { if (tenant.payments?.[i] === 'unpaid') totalDebt += getRentForMonth(tenant, i); }); return (<div key={tenant.id} className="border p-4 rounded break-inside-avoid"><div className="flex justify-between mb-2"><h3 className="font-bold">{tenant.name}</h3><div>Güncel: ₺{currentRent.toLocaleString('tr-TR')}</div></div><div className="grid grid-cols-12 gap-1 text-[10px] text-center mb-3">{months.map((m, i) => { const st = tenant.payments?.[i] === 'paid' ? 'OK' : tenant.payments?.[i] === 'unpaid' ? 'X' : '-'; return <div key={i} className={`p-1 border ${st === 'OK' ? 'bg-green-100' : st === 'X' ? 'bg-red-100' : 'bg-gray-50'}`}>{m}<br/>{st}</div> })}</div><div className="flex justify-end pt-2 border-t mt-2"><div className="text-right"><span className="text-xs font-bold text-gray-500 uppercase block">Toplam Borç</span><span className={`text-lg font-mono font-bold ${totalDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>₺{totalDebt.toLocaleString('tr-TR')}</span></div></div></div>) })}</div></div></div>)}
       {selectedTenant && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col overflow-hidden">
-            <div className="bg-slate-900 text-white p-5 flex justify-between items-center shrink-0"><h2 className="text-xl font-bold flex items-center gap-2"><User className="w-5 h-5"/>{selectedTenant.name}</h2><button onClick={() => setSelectedTenantId(null)}><X className="w-6 h-6"/></button></div>
-            <div className="flex border-b border-gray-200 bg-gray-50 shrink-0">
-              <button onClick={() => setDetailTab('notes')} className={`flex-1 py-3 text-sm font-medium ${detailTab === 'notes' ? 'bg-white text-blue-600 border-t-2 border-blue-600' : 'text-gray-500'}`}>Notlar</button>
-              <button onClick={() => setDetailTab('documents')} className={`flex-1 py-3 text-sm font-medium ${detailTab === 'documents' ? 'bg-white text-blue-600 border-t-2 border-blue-600' : 'text-gray-500'}`}>Belgeler</button>
-              <button onClick={() => setDetailTab('insurance')} className={`flex-1 py-3 text-sm font-medium ${detailTab === 'insurance' ? 'bg-white text-blue-600 border-t-2 border-blue-600' : 'text-gray-500'}`}>Sigorta & Detay</button>
-            </div>
+            <div className="bg-slate-900 text-white p-5 flex justify-between items-center shrink-0"><h2 className="text-xl font-bold flex items-center gap-2"><Users className="w-5 h-5"/>{selectedTenant.name}</h2><button onClick={() => setSelectedTenantId(null)}><X className="w-6 h-6"/></button></div>
+            <div className="flex border-b border-gray-200 bg-gray-50 shrink-0"><button onClick={() => setDetailTab('notes')} className={`flex-1 py-3 text-sm font-medium ${detailTab === 'notes' ? 'bg-white text-blue-600 border-t-2 border-blue-600' : 'text-gray-500'}`}>Notlar</button><button onClick={() => setDetailTab('documents')} className={`flex-1 py-3 text-sm font-medium ${detailTab === 'documents' ? 'bg-white text-blue-600 border-t-2 border-blue-600' : 'text-gray-500'}`}>Belgeler</button><button onClick={() => setDetailTab('insurance')} className={`flex-1 py-3 text-sm font-medium ${detailTab === 'insurance' ? 'bg-white text-blue-600 border-t-2 border-blue-600' : 'text-gray-500'}`}>Sigorta & Detay</button></div>
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
               {detailTab === 'documents' && <div className="space-y-4"><div className="bg-blue-50 p-4 rounded border border-blue-200"><form onSubmit={handleAddDocument} className="flex flex-col gap-2"><input type="text" placeholder="Belge Adı" className="border p-2 rounded text-sm" value={newDoc.title} onChange={e => setNewDoc({...newDoc, title: e.target.value})} /><div className="flex gap-2"><input type="text" placeholder="Link" className="border p-2 rounded text-sm flex-1" value={newDoc.link} onChange={e => setNewDoc({...newDoc, link: e.target.value})} /><button type="submit" className="bg-blue-600 text-white px-3 py-1 rounded text-sm">Ekle</button></div></form></div><div className="space-y-2">{(selectedTenant.documents || []).map(doc => (<div key={doc.id} className="flex justify-between items-center bg-white p-3 rounded border"><a href={doc.link} target="_blank" rel="noreferrer" className="text-sm font-medium text-blue-600 hover:underline">{doc.title}</a><button onClick={() => handleDeleteDocument(doc.id)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4"/></button></div>))}</div></div>}
               {detailTab === 'notes' && <div className="space-y-4"><div className="bg-yellow-50 p-4 rounded border border-yellow-200"><textarea placeholder="Not ekle..." className="w-full border p-2 rounded text-sm" value={newNote} onChange={e => setNewNote(e.target.value)} /><div className="text-right mt-2"><button onClick={handleAddNote} className="bg-yellow-600 text-white px-3 py-1 rounded text-sm">Kaydet</button></div></div><div className="space-y-2">{(selectedTenant.notes || []).map(note => (<div key={note.id} className="bg-white p-3 rounded border shadow-sm relative group"><div className="text-xs text-gray-400 mb-1">{note.date}</div><p className="text-sm text-gray-800">{note.text}</p><button onClick={() => handleDeleteNote(note.id)} className="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><Trash2 className="w-3 h-3"/></button></div>))}</div></div>}
-              {detailTab === 'insurance' && (
-                <div className="space-y-6">
-                   <div className="bg-white p-6 rounded-xl border border-slate-200">
-                     <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-blue-600"/> Sigorta Takibi</h3>
-                     <div className="space-y-4">
-                       <div>
-                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">DASK Yenileme Tarihi</label>
-                         <input type="date" className="w-full border p-2 rounded text-sm" value={insuranceForm.daskDate} onChange={e => setInsuranceForm({...insuranceForm, daskDate: e.target.value})} />
-                       </div>
-                       <div>
-                         <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Konut Sigortası Tarihi</label>
-                         <input type="date" className="w-full border p-2 rounded text-sm" value={insuranceForm.housingInsuranceDate} onChange={e => setInsuranceForm({...insuranceForm, housingInsuranceDate: e.target.value})} />
-                       </div>
-                       <div className="pt-2">
-                         <button onClick={handleSaveInsurance} className="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700">Tarihleri Kaydet</button>
-                       </div>
-                     </div>
-                   </div>
-                   <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 text-xs text-orange-800">
-                     <p className="font-bold flex items-center gap-1 mb-1"><Info className="w-4 h-4"/> Bilgi</p>
-                     Bu tarihler yaklaştığında "Yaklaşan İşlemler" sayfasında otomatik uyarı göreceksiniz.
-                   </div>
-                </div>
-              )}
+              {detailTab === 'insurance' && (<div className="space-y-6"><div className="bg-white p-6 rounded-xl border border-slate-200"><h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-blue-600"/> Sigorta Takibi</h3><div className="space-y-4"><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">DASK Yenileme Tarihi</label><input type="date" className="w-full border p-2 rounded text-sm" value={insuranceForm.daskDate} onChange={e => setInsuranceForm({...insuranceForm, daskDate: e.target.value})} /></div><div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Konut Sigortası Tarihi</label><input type="date" className="w-full border p-2 rounded text-sm" value={insuranceForm.housingInsuranceDate} onChange={e => setInsuranceForm({...insuranceForm, housingInsuranceDate: e.target.value})} /></div><div className="pt-2"><button onClick={handleSaveInsurance} className="w-full bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700">Tarihleri Kaydet</button></div></div></div><div className="bg-orange-50 p-4 rounded-xl border border-orange-100 text-xs text-orange-800"><p className="font-bold flex items-center gap-1 mb-1"><Info className="w-4 h-4"/> Bilgi</p>Bu tarihler yaklaştığında "Yaklaşan İşlemler" sayfasında otomatik uyarı göreceksiniz.</div></div>)}
             </div>
           </div>
         </div>
@@ -607,22 +397,12 @@ const LawsuitModule = ({ client, updateClient, triggerConfirm }) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-slate-500">Toplam {(client.lawsuits || []).length} dosya</div>
-        <button onClick={() => { setForm({ court: '', fileNo: '', type: '', nextDate: '', status: 'active' }); setEditingId(null); setShowModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"><Plus className="w-4 h-4"/> Yeni Dava Ekle</button>
-      </div>
+      <div className="flex justify-between items-center"><div className="text-sm text-slate-500">Toplam {(client.lawsuits || []).length} dosya</div><button onClick={() => { setForm({ court: '', fileNo: '', type: '', nextDate: '', status: 'active' }); setEditingId(null); setShowModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"><Plus className="w-4 h-4"/> Yeni Dava Ekle</button></div>
       <div className="grid grid-cols-1 gap-4">
         {(client.lawsuits || []).map(lawsuit => (
           <div key={lawsuit.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-start gap-4">
-              <div className={`p-3 rounded-lg ${lawsuit.status === 'active' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}><Gavel className="w-6 h-6"/></div>
-              <div><h4 className="font-bold text-slate-800">{lawsuit.court} - {lawsuit.fileNo}</h4><p className="text-sm text-slate-500">{lawsuit.type}</p>{lawsuit.nextDate && <div className="mt-1 flex items-center gap-1 text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded w-fit"><Calendar className="w-3 h-3"/> Duruşma: {new Date(lawsuit.nextDate).toLocaleDateString('tr-TR')}</div>}</div>
-            </div>
-            <div className="flex items-center gap-2">
-               <span className={`px-2 py-1 text-xs rounded border ${lawsuit.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-600'}`}>{lawsuit.status === 'active' ? 'Devam Ediyor' : 'Karara Çıktı'}</span>
-               <button onClick={() => openEdit(lawsuit)} className="p-2 text-blue-400 hover:bg-blue-50 rounded"><Edit3 className="w-4 h-4"/></button>
-               <button onClick={() => handleDelete(lawsuit.id)} className="p-2 text-slate-400 hover:text-red-600 rounded bg-slate-50"><Trash2 className="w-4 h-4"/></button>
-            </div>
+            <div className="flex items-start gap-4"><div className={`p-3 rounded-lg ${lawsuit.status === 'active' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}><Gavel className="w-6 h-6"/></div><div><h4 className="font-bold text-slate-800">{lawsuit.court} - {lawsuit.fileNo}</h4><p className="text-sm text-slate-500">{lawsuit.type}</p>{lawsuit.nextDate && <div className="mt-1 flex items-center gap-1 text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded w-fit"><Calendar className="w-3 h-3"/> Duruşma: {new Date(lawsuit.nextDate).toLocaleDateString('tr-TR')}</div>}</div></div>
+            <div className="flex items-center gap-2"><span className={`px-2 py-1 text-xs rounded border ${lawsuit.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-600'}`}>{lawsuit.status === 'active' ? 'Devam Ediyor' : 'Karara Çıktı'}</span><button onClick={() => openEdit(lawsuit)} className="p-2 text-blue-400 hover:bg-blue-50 rounded"><Edit3 className="w-4 h-4"/></button><button onClick={() => handleDelete(lawsuit.id)} className="p-2 text-slate-400 hover:text-red-600 rounded bg-slate-50"><Trash2 className="w-4 h-4"/></button></div>
           </div>
         ))}
       </div>
@@ -678,10 +458,7 @@ const AssetModule = ({ client, updateClient, triggerConfirm }) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-slate-500">Toplam {(client.assets || []).length} varlık</div>
-        <button onClick={() => { setForm({ type: 'real_estate', name: '', details: '', daskDate: '' }); setEditingId(null); setShowModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"><Plus className="w-4 h-4"/> Varlık Ekle</button>
-      </div>
+      <div className="flex justify-between items-center"><div className="text-sm text-slate-500">Toplam {(client.assets || []).length} varlık</div><button onClick={() => { setForm({ type: 'real_estate', name: '', details: '', daskDate: '' }); setEditingId(null); setShowModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"><Plus className="w-4 h-4"/> Varlık Ekle</button></div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {(client.assets || []).map(asset => {
           const daysLeft = asset.daskDate ? Math.ceil((new Date(asset.daskDate) - new Date()) / (1000 * 60 * 60 * 24)) : null;
@@ -723,15 +500,35 @@ const AccountingModule = ({ client, updateClient, triggerConfirm }) => {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0,10), type: 'expense', category: 'bakim', amount: '', description: '' });
   const [editingId, setEditingId] = useState(null);
+  const [viewYear, setViewYear] = useState(new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(new Date().getMonth());
+  const [showAnnualReport, setShowAnnualReport] = useState(false);
+
+  const allTransactions = client.ledger || [];
+
+  const calculateRollover = () => {
+    const currentPeriodStart = new Date(viewYear, viewMonth, 1);
+    return allTransactions.filter(t => new Date(t.date) < currentPeriodStart).reduce((acc, t) => acc + (t.type === 'income' ? Number(t.amount) : -Number(t.amount)), 0);
+  };
+
+  const currentMonthTransactions = allTransactions.filter(t => {
+    const d = new Date(t.date);
+    return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
+  }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const monthIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
+  const monthExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
+  const rolloverBalance = calculateRollover();
+  const endBalance = rolloverBalance + monthIncome - monthExpense;
 
   const handleSave = (e) => {
     e.preventDefault();
     if (!form.amount || !form.description) return;
     let updatedLedger;
     if (editingId) {
-      updatedLedger = (client.ledger || []).map(t => t.id === editingId ? { ...form, id: editingId } : t);
+      updatedLedger = allTransactions.map(t => t.id === editingId ? { ...form, id: editingId } : t);
     } else {
-      updatedLedger = [{ ...form, id: Date.now() }, ...(client.ledger || [])];
+      updatedLedger = [{ ...form, id: Date.now() }, ...allTransactions];
     }
     updateClient({ ...client, ledger: updatedLedger });
     setShowModal(false);
@@ -747,8 +544,17 @@ const AccountingModule = ({ client, updateClient, triggerConfirm }) => {
 
   const handleDelete = (id) => {
     triggerConfirm("İşlemi Sil", "Silmek istediğinize emin misiniz?", () => {
-      updateClient({ ...client, ledger: (client.ledger || []).filter(t => t.id !== id) });
+      updateClient({ ...client, ledger: allTransactions.filter(t => t.id !== id) });
     });
+  };
+
+  const changeMonth = (delta) => {
+    let newM = viewMonth + delta;
+    let newY = viewYear;
+    if (newM > 11) { newM = 0; newY++; }
+    if (newM < 0) { newM = 11; newY--; }
+    setViewMonth(newM);
+    setViewYear(newY);
   };
 
   const categories = {
@@ -756,28 +562,32 @@ const AccountingModule = ({ client, updateClient, triggerConfirm }) => {
     expense: [{ id: 'bakim', label: 'Bakım' }, { id: 'saglik', label: 'Sağlık' }, { id: 'fatura', label: 'Fatura' }, { id: 'vergi', label: 'Vergi' }, { id: 'hukuk', label: 'Avukatlık' }, { id: 'avans', label: 'Avans' }, { id: 'tadilât', label: 'Tadilat' }, { id: 'diger_gider', label: 'Diğer' }]
   };
 
-  const ledger = client.ledger || [];
-  const totalIncome = ledger.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
-  const totalExpense = ledger.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0);
-  const balance = totalIncome - totalExpense;
+  const getCatLabel = (id, type) => {
+     const list = type === 'income' ? categories.income : categories.expense;
+     return list.find(c => c.id === id)?.label || id;
+  };
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-xl"><div className="text-emerald-800 font-bold text-sm uppercase mb-1">Gelir</div><div className="text-2xl font-mono font-bold text-emerald-600">+₺{totalIncome.toLocaleString('tr-TR')}</div></div>
-        <div className="bg-red-50 border border-red-200 p-5 rounded-xl"><div className="text-red-800 font-bold text-sm uppercase mb-1">Gider</div><div className="text-2xl font-mono font-bold text-red-600">-₺{totalExpense.toLocaleString('tr-TR')}</div></div>
-        <div className="bg-blue-50 border border-blue-200 p-5 rounded-xl"><div className="text-blue-800 font-bold text-sm uppercase mb-1">Net</div><div className="text-2xl font-mono font-bold text-blue-700">₺{balance.toLocaleString('tr-TR')}</div></div>
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-4 bg-slate-50 p-1 rounded-lg"><button onClick={() => changeMonth(-1)} className="p-2 hover:bg-white rounded shadow-sm transition"><ChevronLeft className="w-5 h-5 text-slate-600"/></button><span className="font-bold text-slate-800 w-32 text-center select-none">{fullMonths[viewMonth]} {viewYear}</span><button onClick={() => changeMonth(1)} className="p-2 hover:bg-white rounded shadow-sm transition"><ChevronRight className="w-5 h-5 text-slate-600"/></button></div>
+        <div className="flex gap-2"><button onClick={() => setShowAnnualReport(true)} className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 text-sm font-medium flex items-center gap-2"><Printer className="w-4 h-4"/> Yıllık Rapor Al</button><button onClick={() => { setForm({ date: new Date().toISOString().slice(0,10), type: 'expense', category: 'bakim', amount: '', description: '' }); setEditingId(null); setShowModal(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center gap-2 shadow-sm"><Plus className="w-4 h-4"/> İşlem Ekle</button></div>
       </div>
-      <div className="flex justify-between items-center"><h3 className="font-bold text-lg text-slate-700">Hareketler</h3><button onClick={() => { setForm({ date: new Date().toISOString().slice(0,10), type: 'expense', category: 'bakim', amount: '', description: '' }); setEditingId(null); setShowModal(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium flex items-center gap-2 shadow-sm"><Plus className="w-4 h-4"/> İşlem Ekle</button></div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl"><div className="text-slate-500 font-bold text-xs uppercase mb-1">Devreden Bakiye</div><div className={`text-xl font-mono font-bold ${rolloverBalance >= 0 ? 'text-slate-700' : 'text-red-600'}`}>₺{rolloverBalance.toLocaleString('tr-TR')}</div></div>
+        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl"><div className="text-emerald-800 font-bold text-xs uppercase mb-1">Bu Ay Gelir</div><div className="text-xl font-mono font-bold text-emerald-600">+₺{monthIncome.toLocaleString('tr-TR')}</div></div>
+        <div className="bg-red-50 border border-red-200 p-4 rounded-xl"><div className="text-red-800 font-bold text-xs uppercase mb-1">Bu Ay Gider</div><div className="text-xl font-mono font-bold text-red-600">-₺{monthExpense.toLocaleString('tr-TR')}</div></div>
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl"><div className="text-blue-800 font-bold text-xs uppercase mb-1">Dönem Sonu</div><div className="text-2xl font-mono font-bold text-blue-700">₺{endBalance.toLocaleString('tr-TR')}</div></div>
+      </div>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-semibold border-b"><tr><th className="p-4 w-32">Tarih</th><th className="p-4 w-32">Tür</th><th className="p-4 w-40">Kategori</th><th className="p-4">Açıklama</th><th className="p-4 w-32 text-right">Tutar</th><th className="p-4 w-24 text-center">İşlem</th></tr></thead>
           <tbody className="divide-y divide-slate-100">
-            {ledger.length === 0 ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">İşlem yok.</td></tr> : ledger.map(t => (
+            {currentMonthTransactions.length === 0 ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Bu ay için işlem bulunamadı.</td></tr> : currentMonthTransactions.map(t => (
                 <tr key={t.id} className="hover:bg-slate-50 transition">
                   <td className="p-4 text-slate-600">{new Date(t.date).toLocaleDateString('tr-TR')}</td>
                   <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${t.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.type === 'income' ? 'Gelir' : 'Gider'}</span></td>
-                  <td className="p-4 text-slate-700">{(categories.income.concat(categories.expense).find(c => c.id === t.category)?.label) || t.category}</td>
+                  <td className="p-4 text-slate-700">{getCatLabel(t.category, t.type)}</td>
                   <td className="p-4 font-medium text-slate-800">{t.description}</td>
                   <td className={`p-4 text-right font-mono font-bold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{t.type === 'income' ? '+' : '-'}₺{Number(t.amount).toLocaleString('tr-TR')}</td>
                   <td className="p-4 text-center"><div className="flex justify-center gap-1"><button onClick={() => openEdit(t)} className="p-2 text-blue-400 hover:bg-blue-50 rounded"><Edit3 className="w-4 h-4"/></button><button onClick={() => handleDelete(t.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4"/></button></div></td>
@@ -803,13 +613,23 @@ const AccountingModule = ({ client, updateClient, triggerConfirm }) => {
           </div>
         </div>
       )}
+      {showAnnualReport && (
+        <div id="report-modal" className="fixed inset-0 bg-white z-[70] overflow-auto">
+           <div id="report-content" className="max-w-4xl mx-auto p-12 font-serif text-black">
+              <div className="text-center mb-10 border-b-2 border-black pb-4"><h1 className="text-2xl font-bold uppercase mb-2">Vesayet Hesabı Yıllık Dökümü</h1><p className="text-lg">Dosya: <strong>{client.name}</strong></p><p>Dönem: <strong>{viewYear} Mali Yılı</strong></p></div>
+              <div className="mb-8"><h3 className="font-bold border-b border-gray-400 mb-2">Hesap Özeti</h3><div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm"><div className="flex justify-between"><span>Dönem Başı Devreden:</span> <span>₺{allTransactions.filter(t => new Date(t.date).getFullYear() < viewYear).reduce((acc,t)=>acc+(t.type==='income'?+t.amount:-t.amount),0).toLocaleString('tr-TR')}</span></div><div className="flex justify-between font-bold"><span>Toplam Gelir:</span> <span>+₺{allTransactions.filter(t => new Date(t.date).getFullYear() === viewYear && t.type === 'income').reduce((acc,t)=>acc+(+t.amount),0).toLocaleString('tr-TR')}</span></div><div className="flex justify-between font-bold"><span>Toplam Gider:</span> <span>-₺{allTransactions.filter(t => new Date(t.date).getFullYear() === viewYear && t.type === 'expense').reduce((acc,t)=>acc+(+t.amount),0).toLocaleString('tr-TR')}</span></div><div className="flex justify-between border-t border-black pt-1 font-bold text-lg"><span>Dönem Sonu Bakiye:</span> <span>₺{allTransactions.filter(t => new Date(t.date).getFullYear() <= viewYear).reduce((acc,t)=>acc+(t.type==='income'?+t.amount:-t.amount),0).toLocaleString('tr-TR')}</span></div></div></div>
+              <div className="mb-8"><h3 className="font-bold border-b border-gray-400 mb-2">Aylık Döküm</h3><table className="w-full text-sm border-collapse border border-gray-300"><thead><tr className="bg-gray-100"><th className="border p-1">Ay</th><th className="border p-1 text-right">Gelir</th><th className="border p-1 text-right">Gider</th><th className="border p-1 text-right">Fark</th></tr></thead><tbody>{fullMonths.map((m, i) => { const mIncome = allTransactions.filter(t => new Date(t.date).getFullYear() === viewYear && new Date(t.date).getMonth() === i && t.type === 'income').reduce((acc,t)=>acc+(+t.amount),0); const mExpense = allTransactions.filter(t => new Date(t.date).getFullYear() === viewYear && new Date(t.date).getMonth() === i && t.type === 'expense').reduce((acc,t)=>acc+(+t.amount),0); return (<tr key={i}><td className="border p-1">{m}</td><td className="border p-1 text-right">{mIncome > 0 ? `₺${mIncome.toLocaleString('tr-TR')}` : '-'}</td><td className="border p-1 text-right">{mExpense > 0 ? `₺${mExpense.toLocaleString('tr-TR')}` : '-'}</td><td className="border p-1 text-right font-bold">₺{(mIncome - mExpense).toLocaleString('tr-TR')}</td></tr>) })}</tbody></table></div>
+              <div className="mt-12 flex justify-between text-sm"><div><p>Tarih: {new Date().toLocaleDateString('tr-TR')}</p></div><div className="text-center"><p className="mb-8">Vasi / Vekil</p><p>_______________________</p></div></div>
+              <div className="fixed top-4 right-4 print:hidden flex gap-2"><button onClick={() => requestAnimationFrame(() => window.print())} className="bg-blue-600 text-white px-4 py-2 rounded font-bold">Yazdır</button><button onClick={() => setShowAnnualReport(false)} className="bg-gray-200 px-4 py-2 rounded font-bold">Kapat</button></div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// --- MAIN APP COMPONENT (AT THE END) ---
+// --- MAIN APP COMPONENT ---
 export default function VesayetYonetimSistemi() {
-  // ... (Main component logic - remains same, but placed at end)
   const [user, setUser] = useState(null);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
