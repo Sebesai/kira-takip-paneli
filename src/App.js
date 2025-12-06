@@ -470,6 +470,7 @@ const RentModule = ({ client, updateClient, triggerConfirm, onSyncLedger }) => {
               <th className="p-3 w-40 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Kiracı</th>
               <th className="p-3 w-48">Mülk</th>
               <th className="p-3 w-24">Kontrat</th>
+              {/* Sütun Sıralaması: Başlangıç -> Önceki -> Güncel */}
               <th className="p-3 w-24 text-right text-gray-400 font-normal">Başlangıç</th>
               <th className="p-3 w-24 text-right text-gray-700 font-bold">Son(Önceki)</th>
               <th className="p-3 w-24 text-right text-blue-700 font-bold">Güncel ({displayYear})</th>
@@ -523,15 +524,7 @@ const RentModule = ({ client, updateClient, triggerConfirm, onSyncLedger }) => {
                        <span className="font-mono text-emerald-700">{total > 0 ? `₺${total.toLocaleString('tr-TR')}` : '-'}</span>
                        {total > 0 && (
                          <button 
-                           onClick={() => {
-                              triggerConfirm(
-                                'Gelir Eşitleme', 
-                                `${fullMonths[i]} ${displayYear} için toplam ₺${total.toLocaleString('tr-TR')} kira geliri hesap defterine işlensin mi?`, 
-                                () => onSyncLedger(displayYear, i, total),
-                                "Evet, İşle", // Confirm text
-                                "primary"     // Variant
-                              );
-                           }}
+                           onClick={() => onSyncLedger(displayYear, i, total)} // DIRECT CALL
                            className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition" 
                            title={`${months[i]} Ayı Toplamını Hesaba İşle`}
                          >
