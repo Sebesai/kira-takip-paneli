@@ -4,7 +4,7 @@ import {
   Plus, Trash, Edit, Save, Search, Check, X, 
   AlertCircle, Cloud, RefreshCw, Printer, 
   ExternalLink, Calendar, Menu, ArrowRight, Home,
-  Wallet, TrendingUp, TrendingDown, FileText, StickyNote, Link as LinkIcon, DollarSign, XCircle, Minus, AlertTriangle, Info, Clock, Shield, Zap, Lock, LogOut, ChevronLeft, ChevronRight, Filter, XSquare
+  Wallet, TrendingUp, TrendingDown, FileText, StickyNote, Link as LinkIcon, DollarSign, XCircle, Minus, AlertTriangle, Info, Clock, Shield, Zap, Lock, LogOut, ChevronLeft, ChevronRight, Filter, ArrowDownToLine, CheckCircle
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
@@ -104,6 +104,10 @@ const LoginScreen = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    document.title = "Giriş - Vesayet Yönetim";
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -280,7 +284,7 @@ const UpcomingModule = ({ client }) => {
   );
 }
 
-const RentModule = ({ client, updateClient, triggerConfirm }) => {
+const RentModule = ({ client, updateClient, triggerConfirm, onSyncLedger }) => {
   const [showTenantModal, setShowTenantModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [editingTenantId, setEditingTenantId] = useState(null);
@@ -428,6 +432,18 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
 
   const handlePrint = () => requestAnimationFrame(() => window.print());
 
+  // Aylık Toplam Hesaplama
+  const calculateMonthlyTotal = (monthIndex) => {
+    return activeTenants.reduce((total, tenant) => {
+      const paymentKey = `${displayYear}-${monthIndex}`;
+      const status = tenant.payments?.[paymentKey];
+      if (status === 'paid' || status === true) {
+        return total + getRentForMonth(tenant, monthIndex, displayYear);
+      }
+      return total;
+    }, 0);
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
       <div className="p-4 border-b bg-slate-50 flex flex-col md:flex-row justify-between items-center shrink-0 gap-4">
@@ -454,7 +470,6 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
               <th className="p-3 w-40 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Kiracı</th>
               <th className="p-3 w-48">Mülk</th>
               <th className="p-3 w-24">Kontrat</th>
-              {/* Sütun Sıralaması: Başlangıç -> Önceki -> Güncel */}
               <th className="p-3 w-24 text-right text-gray-400 font-normal">Başlangıç</th>
               <th className="p-3 w-24 text-right text-gray-700 font-bold">Son(Önceki)</th>
               <th className="p-3 w-24 text-right text-blue-700 font-bold">Güncel ({displayYear})</th>
@@ -495,6 +510,42 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
                 );
               })}
           </tbody>
+          
+          {/* TOTALS FOOTER */}
+          <tfoot className="bg-slate-100 text-xs font-bold border-t-2 border-slate-200">
+             <tr>
+               <td colSpan={7} className="p-3 text-right text-slate-600 uppercase">Aylık Toplam Tahsilat:</td>
+               {months.map((_, i) => {
+                 const total = calculateMonthlyTotal(i);
+                 return (
+                   <td key={i} className="p-2 text-center border-l border-slate-200">
+                     <div className="flex flex-col items-center gap-1">
+                       <span className="font-mono text-emerald-700">{total > 0 ? `₺${total.toLocaleString('tr-TR')}` : '-'}</span>
+                       {total > 0 && (
+                         <button 
+                           onClick={() => {
+                              triggerConfirm(
+                                'Gelir Eşitleme', 
+                                `${fullMonths[i]} ${displayYear} için toplam ₺${total.toLocaleString('tr-TR')} kira geliri hesap defterine işlensin mi?`, 
+                                () => onSyncLedger(displayYear, i, total),
+                                "Evet, İşle", // Confirm text
+                                "primary"     // Variant
+                              );
+                           }}
+                           className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition" 
+                           title={`${months[i]} Ayı Toplamını Hesaba İşle`}
+                         >
+                           <ArrowDownToLine className="w-3 h-3" />
+                         </button>
+                       )}
+                     </div>
+                   </td>
+                 );
+               })}
+               <td></td>
+             </tr>
+          </tfoot>
+
         </table>
       </div>
       {showTenantModal && (<div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-xl shadow-2xl w-[95%] md:w-full md:max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col"><div className="bg-slate-50 p-6 border-b border-slate-200 flex justify-between items-center sticky top-0 z-10"><h2 className="text-xl font-bold text-slate-800">{editingTenantId ? 'Kiracı Düzenle' : 'Yeni Kiracı Ekle'}</h2><button onClick={() => setShowTenantModal(false)}><X className="w-6 h-6 text-slate-400" /></button></div><form onSubmit={handleSaveTenant} className="p-6 space-y-6"><div className="grid grid-cols-1 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Ad Soyad</label><input required type="text" className="w-full border p-2.5 rounded-lg" value={tenantForm.name} onChange={e => setTenantForm({...tenantForm, name: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Adres</label><textarea rows="2" className="w-full border p-2.5 rounded-lg" value={tenantForm.address} onChange={e => setTenantForm({...tenantForm, address: e.target.value})} /></div></div><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label><input type="date" className="w-full border p-2.5 rounded-lg" value={tenantForm.startDate} onChange={e => setTenantForm({...tenantForm, startDate: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Önceki Kira</label><input type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.previousRent} onChange={e => setTenantForm({...tenantForm, previousRent: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç Kira</label><input required type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.startRentAmount} onChange={e => setTenantForm({...tenantForm, startRentAmount: e.target.value})} /></div></div><div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200"><input type="checkbox" id="clause" className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500" checked={tenantForm.hasIncreaseClause} onChange={e => setTenantForm({...tenantForm, hasIncreaseClause: e.target.checked})} /><label htmlFor="clause" className="text-sm text-slate-700 cursor-pointer select-none">Sözleşmede <strong>TÜFE/ÜFE Artış Maddesi</strong> var</label></div><div className="space-y-3 pt-4 border-t"><div className="flex justify-between items-center"><h3 className="text-sm font-semibold text-slate-500">Kira Artış Dönemleri</h3><button type="button" onClick={() => setTenantForm({...tenantForm, rentHistory: [...tenantForm.rentHistory, {date: '', amount: ''}]})} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-200">+ Dönem</button></div>{tenantForm.rentHistory.map((h, i) => (<div key={i} className="flex gap-2 items-center"><input type="date" className="border p-2 rounded text-sm w-32" value={h.date} onChange={e => { const n = [...tenantForm.rentHistory]; n[i].date = e.target.value; setTenantForm({...tenantForm, rentHistory: n}); }} /><input type="number" placeholder="Tutar" className="border p-2 rounded text-sm w-32" value={h.amount} onChange={e => { const n = [...tenantForm.rentHistory]; n[i].amount = e.target.value; setTenantForm({...tenantForm, rentHistory: n}); }} /><button type="button" onClick={() => { const n = tenantForm.rentHistory.filter((_, idx) => idx !== i); setTenantForm({...tenantForm, rentHistory: n}); }} className="text-red-500"><Trash className="w-4 h-4"/></button></div>))}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowTenantModal(false)} className="flex-1 py-3 border rounded-xl">İptal</button><button type="submit" className="flex-1 py-3 bg-blue-600 text-white rounded-xl">Kaydet</button></div></form></div></div>)}
@@ -514,7 +565,7 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
       )}
     </div>
   );
-}
+};
 
 // --- MODULE 3: LAWSUITS ---
 const LawsuitModule = ({ client, updateClient, triggerConfirm }) => {
@@ -551,7 +602,7 @@ const LawsuitModule = ({ client, updateClient, triggerConfirm }) => {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center"><div className="text-sm text-slate-500">Toplam {(client.lawsuits || []).length} dosya</div><button onClick={() => { setForm({ court: '', fileNo: '', type: '', nextDate: '', status: 'active' }); setEditingId(null); setShowModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"><Plus className="w-4 h-4"/> Yeni Dava Ekle</button></div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         {(client.lawsuits || []).map(lawsuit => (
           <div key={lawsuit.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-start gap-4"><div className={`p-3 rounded-lg ${lawsuit.status === 'active' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}><Gavel className="w-6 h-6"/></div><div><h4 className="font-bold text-slate-800">{lawsuit.court} - {lawsuit.fileNo}</h4><p className="text-sm text-slate-500">{lawsuit.type}</p>{lawsuit.nextDate && <div className="mt-1 flex items-center gap-1 text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded w-fit"><Calendar className="w-3 h-3"/> Duruşma: {new Date(lawsuit.nextDate).toLocaleDateString('tr-TR')}</div>}</div></div>
@@ -797,7 +848,84 @@ export default function VesayetYonetimSistemi() {
   // Mobile Sidebar State
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  const [confirmModal, setConfirmModal] = useState({ show: false, title: '', msg: '', onConfirm: null });
+  const [confirmModal, setConfirmModal] = useState({ 
+    show: false, 
+    title: '', 
+    msg: '', 
+    onConfirm: null, 
+    confirmText: 'Evet, Sil', 
+    variant: 'danger' 
+  });
+
+  // Callback function to sync rent to ledger
+  const handleSyncRentToLedger = (year, monthIndex, amount) => {
+    if (!activeClientId) return;
+    
+    const activeClient = clients.find(c => c.id === activeClientId);
+    if (!activeClient) return;
+
+    const ledger = activeClient.ledger || [];
+    
+    // Target date for the transaction: 15th of that month
+    const targetDate = new Date(year, monthIndex, 15, 12, 0, 0); 
+    const targetDateStr = targetDate.toISOString().slice(0, 10);
+    const monthName = fullMonths[monthIndex];
+    const desc = `${monthName} ${year} Kira Geliri`;
+
+    const existingIndex = ledger.findIndex(t => {
+      const d = new Date(t.date);
+      return d.getFullYear() === year && d.getMonth() === monthIndex && t.category === 'kira' && t.type === 'income';
+    });
+
+    // İşlem Fonksiyonu (Modal Onayından Sonra Çalışacak)
+    const executeSync = () => {
+      let updatedLedger;
+      if (existingIndex >= 0) {
+        updatedLedger = [...ledger];
+        updatedLedger[existingIndex] = { ...updatedLedger[existingIndex], amount: amount.toString(), description: desc };
+      } else {
+        updatedLedger = [{
+          id: Date.now(),
+          date: targetDateStr,
+          type: 'income',
+          category: 'kira',
+          amount: amount.toString(),
+          description: desc
+        }, ...ledger];
+      }
+
+      const updatedClient = { ...activeClient, ledger: updatedLedger };
+      const newClients = clients.map(c => c.id === activeClient.id ? updatedClient : c);
+      
+      setClients(newClients); 
+      setSyncStatus('syncing');
+      setDoc(doc(db, 'app_data', 'main_data'), { clients: newClients }, { merge: true })
+        .then(() => setSyncStatus('idle'))
+        .catch(err => {
+          console.error(err);
+          setSyncStatus('error');
+        });
+    };
+
+    // Onay İste
+    if (existingIndex >= 0) {
+       triggerConfirm(
+          'Kira Geliri Güncelleme', 
+          `Bu ay için zaten bir kira girişi var. Tutar güncellensin mi?\nEski: ₺${Number(ledger[existingIndex].amount).toLocaleString('tr-TR')} -> Yeni: ₺${amount.toLocaleString('tr-TR')}`, 
+          executeSync,
+          "Evet, Güncelle",
+          "primary"
+       );
+    } else {
+       triggerConfirm(
+          'Gelir Eşitleme', 
+          `${monthName} ${year} için toplam ₺${amount.toLocaleString('tr-TR')} tutarındaki kira geliri hesap defterine işlensin mi?`, 
+          executeSync,
+          "Evet, İşle",
+          "primary"
+       );
+    }
+  };
 
   useEffect(() => {
     document.title = "Vesayet Yönetim";
@@ -842,11 +970,14 @@ export default function VesayetYonetimSistemi() {
     }
   };
 
-  const triggerConfirm = (title, msg, onConfirm) => {
+  // Trigger Confirm Updated to Support Variants
+  const triggerConfirm = (title, msg, onConfirm, confirmText = "Evet, Sil", variant = "danger") => {
     setConfirmModal({ 
       show: true, 
       title, 
       msg, 
+      confirmText,
+      variant,
       onConfirm: () => {
         onConfirm();
         setConfirmModal({ show: false, title: '', msg: '', onConfirm: null }); 
@@ -888,7 +1019,7 @@ export default function VesayetYonetimSistemi() {
         w-64 md:w-64
       `}>
         {/* Mobile Close Button */}
-        <button onClick={() => setMobileMenuOpen(false)} className="absolute top-4 right-4 md:hidden text-slate-400 hover:text-white"><XSquare className="w-6 h-6" /></button>
+        <button onClick={() => setMobileMenuOpen(false)} className="absolute top-4 right-4 md:hidden text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
 
         <div className="p-6 border-b border-slate-700 mt-8 md:mt-0">
           <h1 className="text-lg font-bold flex items-center gap-2 text-blue-400"><ShieldCheck className="w-6 h-6" /> Vesayet Yönetim</h1>
@@ -936,7 +1067,7 @@ export default function VesayetYonetimSistemi() {
             <>
               {activeModule === 'dashboard' && <DashboardModule client={activeClient} />}
               {activeModule === 'upcoming' && <UpcomingModule client={activeClient} />}
-              {activeModule === 'rents' && <RentModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
+              {activeModule === 'rents' && <RentModule client={activeClient} triggerConfirm={triggerConfirm} onSyncLedger={handleSyncRentToLedger} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
               {activeModule === 'lawsuits' && <LawsuitModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
               {activeModule === 'assets' && <AssetModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
               {activeModule === 'accounting' && <AccountingModule client={activeClient} triggerConfirm={triggerConfirm} updateClient={(updated) => { const newClients = clients.map(c => c.id === updated.id ? updated : c); saveToCloud(newClients); }} />}
@@ -948,14 +1079,16 @@ export default function VesayetYonetimSistemi() {
       {/* Global Confirm Modal */}
       {confirmModal.show && (
         <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 border-t-4 border-red-500">
+          <div className={`bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 border-t-4 ${confirmModal.variant === 'primary' ? 'border-blue-500' : 'border-red-500'}`}>
             <div className="flex items-start gap-4">
-              <div className="bg-red-100 p-2 rounded-full"><AlertTriangle className="w-6 h-6 text-red-600" /></div>
+              <div className={`p-2 rounded-full ${confirmModal.variant === 'primary' ? 'bg-blue-100' : 'bg-red-100'}`}>
+                {confirmModal.variant === 'primary' ? <CheckCircle className="w-6 h-6 text-blue-600" /> : <AlertTriangle className="w-6 h-6 text-red-600" />}
+              </div>
               <div><h3 className="text-lg font-bold text-gray-800 mb-2">{confirmModal.title}</h3><p className="text-sm text-gray-600 leading-relaxed">{confirmModal.msg}</p></div>
             </div>
             <div className="flex gap-3 mt-6 justify-end">
               <button onClick={() => setConfirmModal({ ...confirmModal, show: false })} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">İptal</button>
-              <button onClick={confirmModal.onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm shadow-md">Evet, Sil</button>
+              <button onClick={confirmModal.onConfirm} className={`px-4 py-2 text-white rounded-lg font-medium text-sm shadow-md ${confirmModal.variant === 'primary' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'}`}>{confirmModal.confirmText || 'Evet, Sil'}</button>
             </div>
           </div>
         </div>
@@ -974,7 +1107,7 @@ export default function VesayetYonetimSistemi() {
         </div>
       )}
       
-      <style>{`@media print { body * { visibility: hidden; } #report-modal, #report-modal * { visibility: visible; } #report-modal { position: absolute; left: 0; top: 0; width: 100%; height: auto; margin: 0; padding: 0; background: white; z-index: 9999; } #report-content { margin: 0; padding: 20px; width: 100%; } .print\\:hidden { display: none !important; } }`}</style>
+      <style>{`@media print { body, html { height: auto; overflow: visible; } #root { display: none; } #report-modal, #report-modal * { visibility: visible; } #report-modal { position: static; width: 100%; height: auto; overflow: visible; display: block; } #report-content { margin: 0; padding: 0; width: 100%; } .print\\:hidden { display: none !important; } }`}</style>
     </div>
   );
 }
