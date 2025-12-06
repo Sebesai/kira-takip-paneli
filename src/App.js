@@ -4,7 +4,7 @@ import {
   Plus, Trash, Edit, Save, Search, Check, X, 
   AlertCircle, Cloud, RefreshCw, Printer, 
   ExternalLink, Calendar, Menu, ArrowRight, Home,
-  Wallet, TrendingUp, TrendingDown, FileText, StickyNote, Link as LinkIcon, DollarSign, XCircle, Minus, AlertTriangle, Info, Clock, Shield, Zap, Lock, LogOut, ChevronLeft, ChevronRight, Filter
+  Wallet, TrendingUp, TrendingDown, FileText, StickyNote, Link as LinkIcon, DollarSign, XCircle, Minus, AlertTriangle, Info, Clock, Shield, Zap, Lock, LogOut, ChevronLeft, ChevronRight, Filter, XSquare
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
@@ -105,10 +105,6 @@ const LoginScreen = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    document.title = "Giriş - Vesayet Yönetim";
-  }, []);
-
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -200,7 +196,7 @@ const DashboardModule = ({ client }) => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"><div className="text-sm text-slate-500 font-medium uppercase mb-1">Mevcut Bakiye</div><div className={`text-3xl font-bold ${balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>₺{balance.toLocaleString('tr-TR')}</div></div>
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"><div className="text-sm text-slate-500 font-medium uppercase mb-1">Aktif Kiracılar</div><div className="text-3xl font-bold text-emerald-600">{client.tenants?.length || 0}</div></div>
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"><div className="text-sm text-slate-500 font-medium uppercase mb-1">Davalar</div><div className="text-3xl font-bold text-orange-500">{activeLawsuits}</div></div>
@@ -452,7 +448,7 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
         </div>
       </div>
       <div className="overflow-auto flex-1 p-0">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full text-left border-collapse min-w-[1000px] md:min-w-0">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b sticky top-0 z-20">
             <tr>
               <th className="p-3 w-40 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Kiracı</th>
@@ -501,11 +497,11 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
           </tbody>
         </table>
       </div>
-      {showTenantModal && (<div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col"><div className="bg-slate-50 p-6 border-b border-slate-200 flex justify-between items-center sticky top-0 z-10"><h2 className="text-xl font-bold text-slate-800">{editingTenantId ? 'Kiracı Düzenle' : 'Yeni Kiracı Ekle'}</h2><button onClick={() => setShowTenantModal(false)}><X className="w-6 h-6 text-slate-400" /></button></div><form onSubmit={handleSaveTenant} className="p-6 space-y-6"><div className="grid grid-cols-1 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Ad Soyad</label><input required type="text" className="w-full border p-2.5 rounded-lg" value={tenantForm.name} onChange={e => setTenantForm({...tenantForm, name: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Adres</label><textarea rows="2" className="w-full border p-2.5 rounded-lg" value={tenantForm.address} onChange={e => setTenantForm({...tenantForm, address: e.target.value})} /></div></div><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label><input type="date" className="w-full border p-2.5 rounded-lg" value={tenantForm.startDate} onChange={e => setTenantForm({...tenantForm, startDate: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Önceki Kira</label><input type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.previousRent} onChange={e => setTenantForm({...tenantForm, previousRent: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç Kira</label><input required type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.startRentAmount} onChange={e => setTenantForm({...tenantForm, startRentAmount: e.target.value})} /></div></div><div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200"><input type="checkbox" id="clause" className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500" checked={tenantForm.hasIncreaseClause} onChange={e => setTenantForm({...tenantForm, hasIncreaseClause: e.target.checked})} /><label htmlFor="clause" className="text-sm text-slate-700 cursor-pointer select-none">Sözleşmede <strong>TÜFE/ÜFE Artış Maddesi</strong> var</label></div><div className="space-y-3 pt-4 border-t"><div className="flex justify-between items-center"><h3 className="text-sm font-semibold text-slate-500">Kira Artış Dönemleri</h3><button type="button" onClick={() => setTenantForm({...tenantForm, rentHistory: [...tenantForm.rentHistory, {date: '', amount: ''}]})} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-200">+ Dönem</button></div>{tenantForm.rentHistory.map((h, i) => (<div key={i} className="flex gap-2 items-center"><input type="date" className="border p-2 rounded text-sm w-32" value={h.date} onChange={e => { const n = [...tenantForm.rentHistory]; n[i].date = e.target.value; setTenantForm({...tenantForm, rentHistory: n}); }} /><input type="number" placeholder="Tutar" className="border p-2 rounded text-sm w-32" value={h.amount} onChange={e => { const n = [...tenantForm.rentHistory]; n[i].amount = e.target.value; setTenantForm({...tenantForm, rentHistory: n}); }} /><button type="button" onClick={() => { const n = tenantForm.rentHistory.filter((_, idx) => idx !== i); setTenantForm({...tenantForm, rentHistory: n}); }} className="text-red-500"><Trash className="w-4 h-4"/></button></div>))}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowTenantModal(false)} className="flex-1 py-3 border rounded-xl">İptal</button><button type="submit" className="flex-1 py-3 bg-blue-600 text-white rounded-xl">Kaydet</button></div></form></div></div>)}
+      {showTenantModal && (<div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white rounded-xl shadow-2xl w-[95%] md:w-full md:max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col"><div className="bg-slate-50 p-6 border-b border-slate-200 flex justify-between items-center sticky top-0 z-10"><h2 className="text-xl font-bold text-slate-800">{editingTenantId ? 'Kiracı Düzenle' : 'Yeni Kiracı Ekle'}</h2><button onClick={() => setShowTenantModal(false)}><X className="w-6 h-6 text-slate-400" /></button></div><form onSubmit={handleSaveTenant} className="p-6 space-y-6"><div className="grid grid-cols-1 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Ad Soyad</label><input required type="text" className="w-full border p-2.5 rounded-lg" value={tenantForm.name} onChange={e => setTenantForm({...tenantForm, name: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Adres</label><textarea rows="2" className="w-full border p-2.5 rounded-lg" value={tenantForm.address} onChange={e => setTenantForm({...tenantForm, address: e.target.value})} /></div></div><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label><input type="date" className="w-full border p-2.5 rounded-lg" value={tenantForm.startDate} onChange={e => setTenantForm({...tenantForm, startDate: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Önceki Kira</label><input type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.previousRent} onChange={e => setTenantForm({...tenantForm, previousRent: e.target.value})} /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç Kira</label><input required type="number" className="w-full border p-2.5 rounded-lg" value={tenantForm.startRentAmount} onChange={e => setTenantForm({...tenantForm, startRentAmount: e.target.value})} /></div></div><div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200"><input type="checkbox" id="clause" className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500" checked={tenantForm.hasIncreaseClause} onChange={e => setTenantForm({...tenantForm, hasIncreaseClause: e.target.checked})} /><label htmlFor="clause" className="text-sm text-slate-700 cursor-pointer select-none">Sözleşmede <strong>TÜFE/ÜFE Artış Maddesi</strong> var</label></div><div className="space-y-3 pt-4 border-t"><div className="flex justify-between items-center"><h3 className="text-sm font-semibold text-slate-500">Kira Artış Dönemleri</h3><button type="button" onClick={() => setTenantForm({...tenantForm, rentHistory: [...tenantForm.rentHistory, {date: '', amount: ''}]})} className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-200">+ Dönem</button></div>{tenantForm.rentHistory.map((h, i) => (<div key={i} className="flex gap-2 items-center"><input type="date" className="border p-2 rounded text-sm w-32" value={h.date} onChange={e => { const n = [...tenantForm.rentHistory]; n[i].date = e.target.value; setTenantForm({...tenantForm, rentHistory: n}); }} /><input type="number" placeholder="Tutar" className="border p-2 rounded text-sm w-32" value={h.amount} onChange={e => { const n = [...tenantForm.rentHistory]; n[i].amount = e.target.value; setTenantForm({...tenantForm, rentHistory: n}); }} /><button type="button" onClick={() => { const n = tenantForm.rentHistory.filter((_, idx) => idx !== i); setTenantForm({...tenantForm, rentHistory: n}); }} className="text-red-500"><Trash className="w-4 h-4"/></button></div>))}</div><div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowTenantModal(false)} className="flex-1 py-3 border rounded-xl">İptal</button><button type="submit" className="flex-1 py-3 bg-blue-600 text-white rounded-xl">Kaydet</button></div></form></div></div>)}
       {showReportModal && (<div id="report-modal" className="fixed inset-0 bg-white z-[60] overflow-auto"><div id="report-content" className="max-w-4xl mx-auto p-8"><div className="flex justify-between items-start mb-8 border-b pb-4"><div><h1 className="text-2xl font-bold">Kira Tahsilat Raporu ({displayYear})</h1><p>{new Date().toLocaleDateString('tr-TR')}</p></div><div className="flex gap-2 print:hidden"><button onClick={handlePrint} className="px-4 py-2 bg-blue-600 text-white rounded font-bold">Yazdır</button><button onClick={() => setShowReportModal(false)} className="px-4 py-2 bg-gray-200 rounded font-bold">Kapat</button></div></div><div className="space-y-6">{activeTenants.map(tenant => { const currentRent = getCurrentRent(tenant, displayYear); let totalDebt = 0; months.forEach((m, i) => { if (tenant.payments?.[`${displayYear}-${i}`] === 'unpaid') totalDebt += getRentForMonth(tenant, i, displayYear); }); return (<div key={tenant.id} className="border p-4 rounded break-inside-avoid"><div className="flex justify-between mb-2"><h3 className="font-bold">{tenant.name}</h3><div>Güncel ({displayYear}): ₺{currentRent.toLocaleString('tr-TR')}</div></div><div className="grid grid-cols-12 gap-1 text-[10px] text-center mb-3">{months.map((m, i) => { const st = tenant.payments?.[`${displayYear}-${i}`] === 'paid' ? 'OK' : tenant.payments?.[`${displayYear}-${i}`] === 'unpaid' ? 'X' : '-'; return <div key={i} className={`p-1 border ${st === 'OK' ? 'bg-green-100' : st === 'X' ? 'bg-red-100' : 'bg-gray-50'}`}>{m}<br/>{st}</div> })}</div><div className="flex justify-end pt-2 border-t mt-2"><div className="text-right"><span className="text-xs font-bold text-gray-500 uppercase block">Toplam Borç ({displayYear})</span><span className={`text-lg font-mono font-bold ${totalDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>₺{totalDebt.toLocaleString('tr-TR')}</span></div></div></div>) })}</div></div></div>)}
       {selectedTenant && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-xl shadow-2xl w-[95%] md:w-full md:max-w-3xl h-[80vh] flex flex-col overflow-hidden">
             <div className="bg-slate-900 text-white p-5 flex justify-between items-center shrink-0"><h2 className="text-xl font-bold flex items-center gap-2"><Users className="w-5 h-5"/>{selectedTenant.name}</h2><button onClick={() => setSelectedTenantId(null)}><X className="w-6 h-6"/></button></div>
             <div className="flex border-b border-gray-200 bg-gray-50 shrink-0"><button onClick={() => setDetailTab('notes')} className={`flex-1 py-3 text-sm font-medium ${detailTab === 'notes' ? 'bg-white text-blue-600 border-t-2 border-blue-600' : 'text-gray-500'}`}>Notlar</button><button onClick={() => setDetailTab('documents')} className={`flex-1 py-3 text-sm font-medium ${detailTab === 'documents' ? 'bg-white text-blue-600 border-t-2 border-blue-600' : 'text-gray-500'}`}>Belgeler</button><button onClick={() => setDetailTab('insurance')} className={`flex-1 py-3 text-sm font-medium ${detailTab === 'insurance' ? 'bg-white text-blue-600 border-t-2 border-blue-600' : 'text-gray-500'}`}>Sigorta & Detay</button></div>
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
@@ -518,7 +514,7 @@ const RentModule = ({ client, updateClient, triggerConfirm }) => {
       )}
     </div>
   );
-};
+}
 
 // --- MODULE 3: LAWSUITS ---
 const LawsuitModule = ({ client, updateClient, triggerConfirm }) => {
@@ -555,7 +551,7 @@ const LawsuitModule = ({ client, updateClient, triggerConfirm }) => {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center"><div className="text-sm text-slate-500">Toplam {(client.lawsuits || []).length} dosya</div><button onClick={() => { setForm({ court: '', fileNo: '', type: '', nextDate: '', status: 'active' }); setEditingId(null); setShowModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"><Plus className="w-4 h-4"/> Yeni Dava Ekle</button></div>
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {(client.lawsuits || []).map(lawsuit => (
           <div key={lawsuit.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-start gap-4"><div className={`p-3 rounded-lg ${lawsuit.status === 'active' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}><Gavel className="w-6 h-6"/></div><div><h4 className="font-bold text-slate-800">{lawsuit.court} - {lawsuit.fileNo}</h4><p className="text-sm text-slate-500">{lawsuit.type}</p>{lawsuit.nextDate && <div className="mt-1 flex items-center gap-1 text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded w-fit"><Calendar className="w-3 h-3"/> Duruşma: {new Date(lawsuit.nextDate).toLocaleDateString('tr-TR')}</div>}</div></div>
@@ -565,7 +561,7 @@ const LawsuitModule = ({ client, updateClient, triggerConfirm }) => {
       </div>
       {showModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+          <div className="bg-white rounded-xl shadow-xl w-[95%] md:w-full md:max-w-md p-6">
             <h3 className="font-bold text-lg mb-4">{editingId ? 'Dava Düzenle' : 'Dava Ekle'}</h3>
             <form onSubmit={handleSave} className="space-y-3">
               <input required type="text" placeholder="Mahkeme" className="w-full border p-2 rounded" value={form.court} onChange={e => setForm({...form, court: e.target.value})} />
@@ -636,7 +632,7 @@ const AssetModule = ({ client, updateClient, triggerConfirm }) => {
       </div>
       {showModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+          <div className="bg-white rounded-xl shadow-xl w-[95%] md:w-full md:max-w-md p-6">
             <h3 className="font-bold text-lg mb-4">{editingId ? 'Varlık Düzenle' : 'Varlık Ekle'}</h3>
             <form onSubmit={handleSave} className="space-y-3">
               <select className="w-full border p-2 rounded" value={form.type} onChange={e => setForm({...form, type: e.target.value})}><option value="real_estate">Taşınmaz</option><option value="vehicle">Araç</option><option value="bank">Banka</option><option value="other">Diğer</option></select>
@@ -737,7 +733,7 @@ const AccountingModule = ({ client, updateClient, triggerConfirm }) => {
         <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl"><div className="text-blue-800 font-bold text-xs uppercase mb-1">Dönem Sonu</div><div className="text-2xl font-mono font-bold text-blue-700">₺{endBalance.toLocaleString('tr-TR')}</div></div>
       </div>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="w-full text-sm text-left">
+        <table className="w-full text-sm text-left min-w-[600px] md:min-w-0">
           <thead className="bg-slate-50 text-slate-500 uppercase text-xs font-semibold border-b"><tr><th className="p-4 w-32">Tarih</th><th className="p-4 w-32">Tür</th><th className="p-4 w-40">Kategori</th><th className="p-4">Açıklama</th><th className="p-4 w-32 text-right">Tutar</th><th className="p-4 w-24 text-center">İşlem</th></tr></thead>
           <tbody className="divide-y divide-slate-100">
             {currentMonthTransactions.length === 0 ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Bu ay için işlem bulunamadı.</td></tr> : currentMonthTransactions.map(t => (
@@ -755,7 +751,7 @@ const AccountingModule = ({ client, updateClient, triggerConfirm }) => {
       </div>
       {showModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+          <div className="bg-white rounded-xl shadow-xl w-[95%] md:w-full md:max-w-md p-6">
             <h3 className="font-bold text-lg mb-4 text-slate-800">{editingId ? 'İşlem Düzenle' : 'Yeni İşlem'}</h3>
             <form onSubmit={handleSave} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -797,6 +793,9 @@ export default function VesayetYonetimSistemi() {
   const [activeClientId, setActiveClientId] = useState(null);
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [newClientName, setNewClientName] = useState("");
+  
+  // Mobile Sidebar State
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const [confirmModal, setConfirmModal] = useState({ show: false, title: '', msg: '', onConfirm: null });
 
@@ -872,29 +871,46 @@ export default function VesayetYonetimSistemi() {
   if (!user) return <LoginScreen />;
 
   return (
-    <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden">
-      <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20 shrink-0 print:hidden">
-        <div className="p-6 border-b border-slate-700">
+    <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden flex-col md:flex-row">
+      
+      {/* --- MOBILE HEADER --- */}
+      <div className="md:hidden bg-slate-900 text-white p-4 flex justify-between items-center shadow-md z-30 relative">
+        <h1 className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-blue-400" /> Vesayet</h1>
+        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-1 rounded hover:bg-slate-800"><Menu className="w-6 h-6" /></button>
+      </div>
+
+      {/* --- SIDEBAR --- */}
+      <div className={`
+        bg-slate-900 text-white flex flex-col shadow-xl z-40
+        fixed md:relative inset-0 md:inset-auto
+        transform transition-transform duration-300 ease-in-out
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
+        w-64 md:w-64
+      `}>
+        {/* Mobile Close Button */}
+        <button onClick={() => setMobileMenuOpen(false)} className="absolute top-4 right-4 md:hidden text-slate-400 hover:text-white"><XSquare className="w-6 h-6" /></button>
+
+        <div className="p-6 border-b border-slate-700 mt-8 md:mt-0">
           <h1 className="text-lg font-bold flex items-center gap-2 text-blue-400"><ShieldCheck className="w-6 h-6" /> Vesayet Yönetim</h1>
           <p className="text-xs text-slate-400 mt-1">{user.email}</p>
         </div>
         <div className="p-4 border-b border-slate-700">
           <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Aktif Dosya</label>
-          <select className="w-full bg-slate-800 border border-slate-600 text-sm rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none" value={activeClientId || ''} onChange={(e) => setActiveClientId(e.target.value)}>
+          <select className="w-full bg-slate-800 border border-slate-600 text-sm rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none" value={activeClientId || ''} onChange={(e) => { setActiveClientId(e.target.value); setMobileMenuOpen(false); }}>
             <option value="" disabled>Dosya Seçiniz...</option>
             {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <button onClick={() => setShowAddClientModal(true)} className="w-full mt-2 text-xs bg-blue-700 hover:bg-blue-600 text-white py-1.5 rounded flex items-center justify-center gap-1 transition"><Plus className="w-3 h-3" /> Yeni Dosya Aç</button>
+          <button onClick={() => { setShowAddClientModal(true); setMobileMenuOpen(false); }} className="w-full mt-2 text-xs bg-blue-700 hover:bg-blue-600 text-white py-1.5 rounded flex items-center justify-center gap-1 transition"><Plus className="w-3 h-3" /> Yeni Dosya Aç</button>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <MenuButton active={activeModule === 'dashboard'} onClick={() => setActiveModule('dashboard')} icon={<PieChart className="w-5 h-5"/>} label="Genel Bakış" />
-          <MenuButton active={activeModule === 'upcoming'} onClick={() => setActiveModule('upcoming')} icon={<Clock className="w-5 h-5 text-orange-400"/>} label="Yaklaşan İşlemler" />
+          <MenuButton active={activeModule === 'dashboard'} onClick={() => { setActiveModule('dashboard'); setMobileMenuOpen(false); }} icon={<PieChart className="w-5 h-5"/>} label="Genel Bakış" />
+          <MenuButton active={activeModule === 'upcoming'} onClick={() => { setActiveModule('upcoming'); setMobileMenuOpen(false); }} icon={<Clock className="w-5 h-5 text-orange-400"/>} label="Yaklaşan İşlemler" />
           <div className="pt-4 pb-1 text-xs font-bold text-slate-500 uppercase">Operasyon</div>
-          <MenuButton active={activeModule === 'rents'} onClick={() => setActiveModule('rents')} icon={<Building className="w-5 h-5"/>} label="Kiralar & Mülkler" count={activeClient?.tenants?.length} />
-          <MenuButton active={activeModule === 'accounting'} onClick={() => setActiveModule('accounting')} icon={<Wallet className="w-5 h-5"/>} label="Hesap Defteri" count={activeClient?.ledger?.length} />
-          <MenuButton active={activeModule === 'assets'} onClick={() => setActiveModule('assets')} icon={<Home className="w-5 h-5"/>} label="Varlıklar" count={activeClient?.assets?.length} />
+          <MenuButton active={activeModule === 'rents'} onClick={() => { setActiveModule('rents'); setMobileMenuOpen(false); }} icon={<Building className="w-5 h-5"/>} label="Kiralar & Mülkler" count={activeClient?.tenants?.length} />
+          <MenuButton active={activeModule === 'accounting'} onClick={() => { setActiveModule('accounting'); setMobileMenuOpen(false); }} icon={<Wallet className="w-5 h-5"/>} label="Hesap Defteri" count={activeClient?.ledger?.length} />
+          <MenuButton active={activeModule === 'assets'} onClick={() => { setActiveModule('assets'); setMobileMenuOpen(false); }} icon={<Home className="w-5 h-5"/>} label="Varlıklar" count={activeClient?.assets?.length} />
           <div className="pt-4 pb-1 text-xs font-bold text-slate-500 uppercase">Hukuk</div>
-          <MenuButton active={activeModule === 'lawsuits'} onClick={() => setActiveModule('lawsuits')} icon={<Gavel className="w-5 h-5"/>} label="Dava & İcra" count={activeClient?.lawsuits?.length} />
+          <MenuButton active={activeModule === 'lawsuits'} onClick={() => { setActiveModule('lawsuits'); setMobileMenuOpen(false); }} icon={<Gavel className="w-5 h-5"/>} label="Dava & İcra" count={activeClient?.lawsuits?.length} />
         </nav>
         <div className="p-4 bg-slate-950 border-t border-slate-800">
            <div className="flex justify-between items-center mb-2 text-xs text-slate-500">
@@ -905,11 +921,15 @@ export default function VesayetYonetimSistemi() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Overlay for mobile menu */}
+      {mobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setMobileMenuOpen(false)}></div>}
+
+      {/* --- MAIN CONTENT AREA --- */}
+      <div className="flex-1 flex flex-col overflow-hidden w-full">
         <header className="bg-white border-b h-16 flex items-center justify-between px-6 shadow-sm z-10 shrink-0 print:hidden">
-          <h2 className="font-bold text-lg text-slate-700">{activeClient ? activeClient.name : 'Lütfen Dosya Seçiniz'}{activeClient && <span className="ml-2 text-sm font-normal text-slate-400">/ {getModuleName(activeModule)}</span>}</h2>
+          <h2 className="font-bold text-lg text-slate-700 truncate mr-2">{activeClient ? activeClient.name : 'Lütfen Dosya Seçiniz'}{activeClient && <span className="ml-2 text-sm font-normal text-slate-400 hidden sm:inline">/ {getModuleName(activeModule)}</span>}</h2>
         </header>
-        <main className="flex-1 overflow-y-auto p-6 relative bg-slate-50 print:p-0 print:bg-white print:overflow-visible">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 relative bg-slate-50 print:p-0 print:bg-white print:overflow-visible">
           {!activeClient ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400"><Users className="w-16 h-16 mb-4 opacity-20" /><p>İşlem yapmak için soldan bir müvekkil/kısıtlı dosyası seçin.</p></div>
           ) : (
@@ -925,6 +945,7 @@ export default function VesayetYonetimSistemi() {
         </main>
       </div>
 
+      {/* Global Confirm Modal */}
       {confirmModal.show && (
         <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 border-t-4 border-red-500">
